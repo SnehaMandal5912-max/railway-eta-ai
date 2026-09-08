@@ -9,21 +9,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-
-// 📊 ETA Forecast Data
 const etaData = [
   {
     station: "Howrah",
     scheduled: 820,
     predicted: 820,
   },
-
   {
     station: "Bandel",
     scheduled: 865,
     predicted: 875,
   },
-
   {
     station: "Barddhaman",
     scheduled: 915,
@@ -31,17 +27,20 @@ const etaData = [
   },
 ];
 
+// Convert minutes from midnight into HH:MM
+const formatTime = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(
+    mins
+  ).padStart(2, "0")}`;
+};
 
 function ETAChart() {
-
   return (
-
     <div className="bg-slate-900 rounded-2xl p-7 border border-slate-800">
-
-      {/* Header */}
-
       <div className="mb-6">
-
         <h2 className="text-2xl font-semibold">
           📊 ETA Forecast Analysis
         </h2>
@@ -49,19 +48,13 @@ function ETAChart() {
         <p className="text-slate-400 mt-1">
           Scheduled vs Predicted Arrival Time
         </p>
-
       </div>
 
-
-      {/* Chart */}
-
       <div className="w-full h-[350px]">
-
         <ResponsiveContainer
           width="100%"
           height="100%"
         >
-
           <LineChart
             data={etaData}
             margin={{
@@ -71,7 +64,6 @@ function ETAChart() {
               bottom: 10,
             }}
           >
-
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="#334155"
@@ -85,6 +77,7 @@ function ETAChart() {
             <YAxis
               stroke="#94a3b8"
               domain={["auto", "auto"]}
+              tickFormatter={formatTime}
             />
 
             <Tooltip
@@ -94,12 +87,16 @@ function ETAChart() {
                 borderRadius: "10px",
                 color: "white",
               }}
+              formatter={(value, name) => [
+                formatTime(value),
+                name,
+              ]}
+              labelFormatter={(label) =>
+                `Station: ${label}`
+              }
             />
 
             <Legend />
-
-
-            {/* Scheduled ETA */}
 
             <Line
               type="monotone"
@@ -107,16 +104,9 @@ function ETAChart() {
               name="Scheduled ETA"
               strokeWidth={3}
               stroke="#60a5fa"
-              dot={{
-                r: 5,
-              }}
-              activeDot={{
-                r: 7,
-              }}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
             />
-
-
-            {/* Predicted ETA */}
 
             <Line
               type="monotone"
@@ -124,39 +114,22 @@ function ETAChart() {
               name="Predicted ETA"
               strokeWidth={3}
               stroke="#34d399"
-              dot={{
-                r: 5,
-              }}
-              activeDot={{
-                r: 7,
-              }}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
             />
-
           </LineChart>
-
         </ResponsiveContainer>
-
       </div>
 
-
-      {/* Explanation */}
-
       <div className="mt-5 bg-slate-800 rounded-xl p-4">
-
         <p className="text-slate-300 text-sm">
-
           🤖 The predicted ETA is calculated using
           dynamic train conditions and can later be
           connected with the ML prediction model.
-
         </p>
-
       </div>
-
     </div>
-
   );
 }
-
 
 export default ETAChart;

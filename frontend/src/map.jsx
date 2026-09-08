@@ -127,22 +127,18 @@ function RailwayMap({
 
     const lat =
       start[0] +
-      (end[0] - start[0]) *
-        segmentProgress;
+      (end[0] - start[0]) * segmentProgress;
 
     const lng =
       start[1] +
-      (end[1] - start[1]) *
-        segmentProgress;
+      (end[1] - start[1]) * segmentProgress;
 
     return [lat, lng];
   };
 
   const calculateProgress = (position) => {
     const start = route[0];
-
-    const end =
-      route[route.length - 1];
+    const end = route[route.length - 1];
 
     const totalDistance = Math.sqrt(
       Math.pow(end[0] - start[0], 2) +
@@ -155,8 +151,7 @@ function RailwayMap({
     );
 
     let progress =
-      (currentDistance / totalDistance) *
-      100;
+      (currentDistance / totalDistance) * 100;
 
     progress = Math.max(
       0,
@@ -165,6 +160,10 @@ function RailwayMap({
 
     return Math.round(progress);
   };
+
+  // ---------------------------------------
+  // Simulated live train movement
+  // ---------------------------------------
 
   useEffect(() => {
     let progress = 0;
@@ -182,9 +181,12 @@ function RailwayMap({
       setTrainPosition(newPosition);
     }, 100);
 
-    return () =>
-      clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
+
+  // ---------------------------------------
+  // Update journey progress
+  // ---------------------------------------
 
   useEffect(() => {
     const progress =
@@ -198,6 +200,10 @@ function RailwayMap({
     onProgressChange,
   ]);
 
+  // ---------------------------------------
+  // Determine live station information
+  // ---------------------------------------
+
   useEffect(() => {
     const [lat] = trainPosition;
 
@@ -208,77 +214,47 @@ function RailwayMap({
     let locationDescription;
 
     if (lat < 22.60) {
-      currentStation =
-        "Howrah Junction";
+      currentStation = "Howrah Junction";
+      nextStation = "Bandel Junction";
+      upcomingStation = "Barddhaman Junction";
 
-      nextStation =
-        "Bandel Junction";
-
-      upcomingStation =
-        "Barddhaman Junction";
-
-      locationType =
-        "At Station";
+      locationType = "At Station";
 
       locationDescription =
         "Train is currently at Howrah Junction";
     } else if (lat < 22.98) {
-      currentStation =
-        "Between Stations";
+      currentStation = "Between Stations";
+      nextStation = "Bandel Junction";
+      upcomingStation = "Barddhaman Junction";
 
-      nextStation =
-        "Bandel Junction";
-
-      upcomingStation =
-        "Barddhaman Junction";
-
-      locationType =
-        "Between Stations";
+      locationType = "Between Stations";
 
       locationDescription =
         "Train is currently between Howrah Junction and Bandel Junction";
     } else if (lat < 23.03) {
-      currentStation =
-        "Bandel Junction";
+      currentStation = "Bandel Junction";
+      nextStation = "Barddhaman Junction";
+      upcomingStation = "Barddhaman Junction";
 
-      nextStation =
-        "Barddhaman Junction";
-
-      upcomingStation =
-        "Barddhaman Junction";
-
-      locationType =
-        "At Station";
+      locationType = "At Station";
 
       locationDescription =
         "Train is currently at Bandel Junction";
     } else if (lat < 23.20) {
-      currentStation =
-        "Between Stations";
+      currentStation = "Between Stations";
+      nextStation = "Barddhaman Junction";
+      upcomingStation = "Destination";
 
-      nextStation =
-        "Barddhaman Junction";
-
-      upcomingStation =
-        "Destination";
-
-      locationType =
-        "Between Stations";
+      locationType = "Between Stations";
 
       locationDescription =
         "Train is currently between Bandel Junction and Barddhaman Junction";
     } else {
-      currentStation =
-        "Barddhaman Junction";
+      currentStation = "Barddhaman Junction";
+      nextStation = "Destination";
+      upcomingStation = "End of Route";
 
-      nextStation =
-        "Destination";
-
-      upcomingStation =
-        "End of Route";
-
-      locationType =
-        "At Station";
+      locationType = "At Station";
 
       locationDescription =
         "Train has reached Barddhaman Junction";
@@ -295,8 +271,7 @@ function RailwayMap({
     if (onLocationChange) {
       onLocationChange({
         type: locationType,
-        description:
-          locationDescription,
+        description: locationDescription,
         latitude: trainPosition[0],
         longitude: trainPosition[1],
       });
@@ -306,6 +281,10 @@ function RailwayMap({
     onStationChange,
     onLocationChange,
   ]);
+
+  // ---------------------------------------
+  // Determine station marker status
+  // ---------------------------------------
 
   const getStationType = (stationName) => {
     const [lat] = trainPosition;
@@ -333,16 +312,14 @@ function RailwayMap({
     }
 
     if (
-      stationName ===
-        "Barddhaman Junction" &&
+      stationName === "Barddhaman Junction" &&
       lat >= 23.20
     ) {
       return "current";
     }
 
     if (
-      stationName ===
-        "Barddhaman Junction" &&
+      stationName === "Barddhaman Junction" &&
       lat < 23.20
     ) {
       return "next";
@@ -351,7 +328,32 @@ function RailwayMap({
     return "next";
   };
 
-  // Current train progress
+  // ---------------------------------------
+  // LIVE station information for map panel
+  // ---------------------------------------
+
+  const [lat] = trainPosition;
+
+  let liveCurrentStation;
+  let liveNextStation;
+
+  if (lat < 22.60) {
+    liveCurrentStation = "Howrah Junction";
+    liveNextStation = "Bandel Junction";
+  } else if (lat < 22.98) {
+    liveCurrentStation = "Between Stations";
+    liveNextStation = "Bandel Junction";
+  } else if (lat < 23.03) {
+    liveCurrentStation = "Bandel Junction";
+    liveNextStation = "Barddhaman Junction";
+  } else if (lat < 23.20) {
+    liveCurrentStation = "Between Stations";
+    liveNextStation = "Barddhaman Junction";
+  } else {
+    liveCurrentStation = "Barddhaman Junction";
+    liveNextStation = "Destination";
+  }
+
   const currentProgress =
     calculateProgress(trainPosition);
 
@@ -363,8 +365,6 @@ function RailwayMap({
         width: "100%",
       }}
     >
-      {/* Railway Map */}
-
       <MapContainer
         center={[22.9, 88.2]}
         zoom={9}
@@ -378,6 +378,7 @@ function RailwayMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        {/* Railway Route */}
         <Polyline
           positions={route}
           pathOptions={{
@@ -387,16 +388,14 @@ function RailwayMap({
           }}
         />
 
-        {/* Train */}
-
+        {/* Live Train Marker */}
         <Marker
           position={trainPosition}
           icon={trainIcon}
         >
           <Popup>
             <strong>
-              🚆 Train{" "}
-              {trainData.trainNumber}
+              🚆 Train {trainData.trainNumber}
             </strong>
 
             <br />
@@ -430,16 +429,13 @@ function RailwayMap({
           </Popup>
         </Marker>
 
-        {/* Stations */}
-
+        {/* Station Markers */}
         {stations.map((station) => (
           <Marker
             key={station.name}
             position={station.position}
             icon={createStationIcon(
-              getStationType(
-                station.name
-              )
+              getStationType(station.name)
             )}
           >
             <Tooltip
@@ -470,8 +466,7 @@ function RailwayMap({
           </Marker>
         ))}
 
-        {/* Train Location Circle */}
-
+        {/* Train Accuracy / Movement Circle */}
         <CircleMarker
           center={trainPosition}
           radius={12}
@@ -484,7 +479,9 @@ function RailwayMap({
         />
       </MapContainer>
 
-      {/* Map Status Panel */}
+      {/* -----------------------------------
+          LIVE TRAIN STATUS PANEL
+          ----------------------------------- */}
 
       <div
         style={{
@@ -496,7 +493,7 @@ function RailwayMap({
           border: "1px solid #334155",
           borderRadius: "12px",
           padding: "14px 16px",
-          minWidth: "190px",
+          minWidth: "220px",
           color: "white",
           boxShadow:
             "0 8px 25px rgba(0,0,0,0.35)",
@@ -525,11 +522,10 @@ function RailwayMap({
         <div
           style={{
             fontSize: "13px",
-            marginBottom: "5px",
+            marginBottom: "6px",
           }}
         >
-          📍{" "}
-          {trainData.currentStation}
+          📍 {liveCurrentStation}
         </div>
 
         <div
@@ -538,20 +534,30 @@ function RailwayMap({
             marginBottom: "8px",
           }}
         >
-          ➡️ Next:{" "}
-          {trainData.nextStation}
+          ➡️ Next: {liveNextStation}
         </div>
 
         <div
           style={{
             fontSize: "13px",
             color: "#34d399",
+            marginBottom: "5px",
           }}
         >
           Journey Progress:{" "}
           <strong>
             {currentProgress}%
           </strong>
+        </div>
+
+        <div
+          style={{
+            fontSize: "11px",
+            color: "#64748b",
+            marginTop: "8px",
+          }}
+        >
+          ● Live simulation
         </div>
       </div>
     </div>
