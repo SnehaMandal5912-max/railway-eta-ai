@@ -21,6 +21,35 @@ const trainData = {
   delayReason: "Operational congestion",
   status: "On Route",
 
+  /*
+   * Prototype ML-related information.
+   * Later this can come directly from the ML/API service.
+   */
+  predictionConfidence: 92,
+
+  /*
+   * Delay propagation model.
+   *
+   * propagationFactor represents how much of the
+   * current delay may continue towards each station.
+   */
+  delayPropagation: [
+    {
+      station: "Bandel Junction",
+      scheduledTime: "14:25",
+      propagatedDelay: 8,
+      propagationFactor: 0.67,
+      risk: "Medium",
+    },
+    {
+      station: "Barddhaman Junction",
+      scheduledTime: "15:15",
+      propagatedDelay: 5,
+      propagationFactor: 0.42,
+      risk: "Low",
+    },
+  ],
+
   alerts: [
     {
       type: "delay",
@@ -31,20 +60,56 @@ const trainData = {
     {
       type: "congestion",
       title: "Operational Congestion",
-      message: "Moderate congestion detected on the route.",
+      message:
+        "Moderate congestion detected on the route.",
       severity: "warning",
     },
     {
       type: "speed",
       title: "Speed Restriction",
-      message: "Temporary speed restriction may affect ETA.",
+      message:
+        "Temporary speed restriction may affect ETA.",
       severity: "info",
     },
     {
       type: "halt",
       title: "Unscheduled Halt",
-      message: "No unscheduled halt detected.",
+      message:
+        "No unscheduled halt detected.",
       severity: "normal",
+    },
+  ],
+
+  riskZones: [
+    {
+      id: 1,
+      name: "Bandel Track Zone",
+      type: "Track Risk",
+      severity: "High",
+      lat: 22.88,
+      lng: 88.347,
+      radius: 900,
+      impact: "Possible speed restriction",
+    },
+    {
+      id: 2,
+      name: "Wildlife Sensitive Zone",
+      type: "Wildlife Risk",
+      severity: "Medium",
+      lat: 23.08,
+      lng: 88.25,
+      radius: 1200,
+      impact: "Wildlife crossing possibility",
+    },
+    {
+      id: 3,
+      name: "Barddhaman Approach",
+      type: "Track Risk",
+      severity: "Low",
+      lat: 23.15,
+      lng: 88.05,
+      radius: 800,
+      impact: "Operational caution required",
     },
   ],
 
@@ -61,26 +126,8 @@ const trainData = {
     },
     {
       name: "Barddhaman Junction",
-      status: "Upcoming",
+      status: "Destination",
       eta: "15:15",
-    },
-  ],
-
-  etaForecast: [
-    {
-      station: "Howrah Junction",
-      scheduled: "13:40",
-      predicted: "13:40",
-    },
-    {
-      station: "Bandel Junction",
-      scheduled: "14:25",
-      predicted: "14:35",
-    },
-    {
-      station: "Barddhaman Junction",
-      scheduled: "15:15",
-      predicted: "15:30",
     },
   ],
 };
