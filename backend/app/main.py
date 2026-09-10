@@ -1,5 +1,8 @@
 from fastapi import FastAPI
+
 from app.api.train import router as train_router
+from app.api.train_details import router as train_details_router
+
 
 app = FastAPI(
     title="Railway ETA AI Backend",
@@ -8,8 +11,11 @@ app = FastAPI(
 )
 
 
-# Register Train APIs
+# Train Search API
 app.include_router(train_router)
+
+# Train Details API
+app.include_router(train_details_router)
 
 
 @app.get("/")
