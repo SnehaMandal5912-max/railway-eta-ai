@@ -6,36 +6,33 @@ import {
   Polyline,
   Popup,
   TileLayer,
+  Tooltip,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import trainData from "./trainData";
 
-// =========================
-// SIMULATION CONFIGURATION
-// =========================
-
 const TICK_SECONDS = 0.5;
 const SIMULATION_TIME_SCALE = 30;
 
-// =========================
-// ROUTE
-// =========================
+/* =====================================================
+   ROUTE
+   ===================================================== */
 
 const ROUTE = [
-  [22.5839, 88.3428], // Howrah
+  [22.5839, 88.3428],
   [22.68, 88.345],
   [22.78, 88.346],
   [22.88, 88.347],
-  [23.0071, 88.3484], // Bandel
+  [23.0071, 88.3484],
   [23.08, 88.25],
   [23.15, 88.05],
-  [23.2324, 87.8615], // Barddhaman
+  [23.2324, 87.8615],
 ];
 
-// =========================
-// STATIONS
-// =========================
+/* =====================================================
+   STATIONS
+   ===================================================== */
 
 const STATIONS = [
   {
@@ -58,9 +55,9 @@ const STATIONS = [
   },
 ];
 
-// =========================
-// DEFAULT RISK ZONES
-// =========================
+/* =====================================================
+   DEFAULT RISK ZONES
+   ===================================================== */
 
 const DEFAULT_RISKS = [
   {
@@ -95,9 +92,9 @@ const DEFAULT_RISKS = [
   },
 ];
 
-// =========================
-// HELPERS
-// =========================
+/* =====================================================
+   GEO FUNCTIONS
+   ===================================================== */
 
 function toRadians(value) {
   return (value * Math.PI) / 180;
@@ -130,10 +127,15 @@ function interpolatePoint(pointA, pointB, ratio) {
   ];
 }
 
+/* =====================================================
+   RISK FUNCTIONS
+   ===================================================== */
+
 function getSeverityRank(severity) {
   if (severity === "High") return 3;
   if (severity === "Medium") return 2;
   if (severity === "Low") return 1;
+
   return 0;
 }
 
@@ -145,9 +147,9 @@ function getRiskSpeedLimit(severity) {
   return 60;
 }
 
-// =========================
-// STATION ICON
-// =========================
+/* =====================================================
+   STATION ICON
+   ===================================================== */
 
 function createStationIcon(type, isCurrent = false) {
   let background = "#2563eb";
@@ -166,6 +168,7 @@ function createStationIcon(type, isCurrent = false) {
 
   return L.divIcon({
     className: "station-marker-wrapper",
+
     html: `
       <div
         style="
@@ -178,30 +181,33 @@ function createStationIcon(type, isCurrent = false) {
         "
       ></div>
     `,
+
     iconSize: [20, 20],
     iconAnchor: [10, 10],
   });
 }
 
-// =========================
-// TRAIN ICON
-// =========================
+/* =====================================================
+   TRAIN ICON
+   ===================================================== */
 
 const trainIcon = L.divIcon({
   className: "train-marker-wrapper",
+
   html: `
     <div class="train-live-marker">
       <div class="train-live-glow"></div>
       <div class="train-live-icon">🚆</div>
     </div>
   `,
+
   iconSize: [46, 46],
   iconAnchor: [23, 23],
 });
 
-// =========================
-// MAP RESIZE FIX
-// =========================
+/* =====================================================
+   MAP RESIZE
+   ===================================================== */
 
 function MapResizeHandler() {
   const map = useMap();
@@ -217,43 +223,84 @@ function MapResizeHandler() {
   return null;
 }
 
-// =========================
-// RAILWAY MAP
-// =========================
+/* =====================================================
+   RAILWAY MAP
+   ===================================================== */
 
 function RailwayMap({
   riskZones = DEFAULT_RISKS,
+
   onProgressUpdate,
   onLocationUpdate,
+
   onStationUpdate,
   onRiskUpdate,
+
+  onStationInfo,
+  onRiskInfo,
 }) {
   const [trainPosition, setTrainPosition] = useState(ROUTE[0]);
+
   const [speed, setSpeed] = useState(0);
-  const [movement, setMovement] = useState("HALTED AT STATION");
+
+  const [movement, setMovement] = useState(
+    "HALTED AT STATION"
+  );
+
   const [activeRisks, setActiveRisks] = useState([]);
+
+  const callbacksRef = useRef({
+    onProgressUpdate,
+    onLocationUpdate,
+
+    onStationUpdate:
+      onStationUpdate || onStationInfo,
+
+    onRiskUpdate:
+      onRiskUpdate || onRiskInfo,
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      onProgressUpdate,
+      onLocationUpdate,
+
+      onStationUpdate:
+        onStationUpdate || onStationInfo,
+
+      onRiskUpdate:
+        onRiskUpdate || onRiskInfo,
+    };
+  }, [
+    onProgressUpdate,
+    onLocationUpdate,
+    onStationUpdate,
+    onRiskUpdate,
+    onStationInfo,
+    onRiskInfo,
+  ]);
+
+  const speedRef = useRef(0);
 
   const simulation = useRef({
     distance: 0,
     phase: "HALT",
     dwellRemaining: STATIONS[0].dwellSeconds,
     destinationHold: false,
+    lastArrivedStationIndex: 0,
   });
-
-  // =========================
-  // ROUTE DISTANCES
-  // =========================
 
   const routeDistances = useMemo(() => {
     const distances = [0];
 
     for (let i = 1; i < ROUTE.length; i++) {
-      const segmentDistance = haversineDistance(
-        ROUTE[i - 1],
-        ROUTE[i]
+      distances.push(
+        distances[i - 1] +
+          haversineDistance(
+            ROUTE[i - 1],
+            ROUTE[i]
+          )
       );
-
-      distances.push(distances[i - 1] + segmentDistance);
     }
 
     return distances;
@@ -262,20 +309,14 @@ function RailwayMap({
   const totalRouteDistance =
     routeDistances[routeDistances.length - 1];
 
-  // =========================
-  // STATION DISTANCES
-  // =========================
-
   const stationDistances = useMemo(() => {
     return STATIONS.map((station) => ({
       ...station,
-      distance: routeDistances[station.routeIndex],
+
+      distance:
+        routeDistances[station.routeIndex],
     }));
   }, [routeDistances]);
-
-  // =========================
-  // POSITION FROM DISTANCE
-  // =========================
 
   const getPositionFromDistance = (distance) => {
     const safeDistance = Math.max(
@@ -283,14 +324,22 @@ function RailwayMap({
       Math.min(distance, totalRouteDistance)
     );
 
-    for (let i = 1; i < routeDistances.length; i++) {
+    for (let i = 1; i < ROUTE.length; i++) {
       if (safeDistance <= routeDistances[i]) {
-        const segmentStart = routeDistances[i - 1];
-        const segmentEnd = routeDistances[i];
+        const segmentStart =
+          routeDistances[i - 1];
+
+        const segmentEnd =
+          routeDistances[i];
+
+        const segmentLength =
+          segmentEnd - segmentStart;
 
         const ratio =
-          (safeDistance - segmentStart) /
-          (segmentEnd - segmentStart);
+          segmentLength === 0
+            ? 0
+            : (safeDistance - segmentStart) /
+              segmentLength;
 
         return interpolatePoint(
           ROUTE[i - 1],
@@ -303,46 +352,68 @@ function RailwayMap({
     return ROUTE[ROUTE.length - 1];
   };
 
-  // =========================
-  // CURRENT STATION INFO
-  // =========================
-
-  const getCurrentStationInfo = (distance) => {
+  const getCurrentStationInfo = (distance, phase) => {
     const tolerance = 120;
 
-    let currentStation = null;
-    let nextStation = null;
+    if (
+      distance >=
+      totalRouteDistance - tolerance
+    ) {
+      return {
+        currentStation:
+          stationDistances[
+            stationDistances.length - 1
+          ],
 
-    for (let i = 0; i < stationDistances.length; i++) {
-      const station = stationDistances[i];
+        nextStation: null,
+      };
+    }
 
-      if (
-        Math.abs(distance - station.distance) <= tolerance
+    if (phase === "HALT") {
+      for (
+        let i = 0;
+        i < stationDistances.length;
+        i++
       ) {
-        currentStation = station;
-        break;
-      }
+        const station = stationDistances[i];
 
-      if (station.distance > distance) {
-        nextStation = station;
-        break;
+        if (
+          Math.abs(
+            distance - station.distance
+          ) <= tolerance
+        ) {
+          return {
+            currentStation: station,
+
+            nextStation:
+              stationDistances[i + 1] ||
+              null,
+          };
+        }
       }
     }
 
-    if (!currentStation && !nextStation) {
-      currentStation =
-        stationDistances[stationDistances.length - 1];
+    for (
+      let i = 0;
+      i < stationDistances.length;
+      i++
+    ) {
+      if (
+        stationDistances[i].distance >
+        distance + tolerance
+      ) {
+        return {
+          currentStation: null,
+          nextStation: stationDistances[i],
+        };
+      }
     }
 
     return {
-      currentStation,
-      nextStation,
+      currentStation: null,
+      nextStation: null,
     };
   };
-
-  // =========================
-  // RISK DETECTION
-  // =========================
 
   const calculateActiveRisks = (position) => {
     return riskZones.filter((risk) => {
@@ -355,491 +426,647 @@ function RailwayMap({
     });
   };
 
-  // =========================
-  // MAIN SIMULATION
-  // =========================
-
   useEffect(() => {
     const interval = setInterval(() => {
       const state = simulation.current;
 
-      // -------------------------
-      // DESTINATION HOLD
-      // -------------------------
+      const callbacks =
+        callbacksRef.current;
 
       if (state.destinationHold) {
+        speedRef.current = 0;
+
         setSpeed(0);
+
         setMovement("DESTINATION");
 
         setTrainPosition(
           ROUTE[ROUTE.length - 1]
         );
 
-        onProgressUpdate?.(100);
+        callbacks.onProgressUpdate?.(100);
 
-        onLocationUpdate?.({
-          lat: ROUTE[ROUTE.length - 1][0],
-          lng: ROUTE[ROUTE.length - 1][1],
+        callbacks.onLocationUpdate?.({
+          lat:
+            ROUTE[ROUTE.length - 1][0],
+
+          lng:
+            ROUTE[ROUTE.length - 1][1],
+
           type: "Destination",
+
           description:
             "Train has reached the destination station.",
         });
 
-        onStationUpdate?.({
-          currentStation: "Barddhaman Junction",
+        callbacks.onStationUpdate?.({
+          currentStation:
+            "Barddhaman Junction",
+
           nextStation: "—",
+
           movement: "DESTINATION",
+        });
+
+        callbacks.onRiskUpdate?.({
+          activeRisks: [],
+
+          highestSeverity: "Normal",
+
+          totalActive: 0,
         });
 
         return;
       }
 
-      // -------------------------
-      // CURRENT POSITION
-      // -------------------------
+      const currentPosition =
+        getPositionFromDistance(
+          state.distance
+        );
 
-      const currentPosition = getPositionFromDistance(
-        state.distance
-      );
-
-      const risks = calculateActiveRisks(
-        currentPosition
-      );
+      const risks =
+        calculateActiveRisks(
+          currentPosition
+        );
 
       setActiveRisks(risks);
 
-      // -------------------------
-      // RISK SPEED LIMIT
-      // -------------------------
+      const highestRisk =
+        risks.reduce(
+          (highest, risk) => {
+            if (
+              getSeverityRank(
+                risk.severity
+              ) >
+              getSeverityRank(
+                highest?.severity
+              )
+            ) {
+              return risk;
+            }
 
-      const highestRisk = risks.reduce(
-        (highest, risk) => {
-          if (
-            getSeverityRank(risk.severity) >
-            getSeverityRank(highest?.severity)
-          ) {
-            return risk;
-          }
+            return highest;
+          },
+          null
+        );
 
-          return highest;
-        },
-        null
-      );
+      callbacks.onRiskUpdate?.({
+        activeRisks: risks,
 
-      const riskSpeedLimit = highestRisk
-        ? getRiskSpeedLimit(highestRisk.severity)
-        : 60;
+        highestSeverity:
+          highestRisk?.severity ||
+          "Normal",
 
-      // -------------------------
-      // HALT LOGIC
-      // IMPORTANT FIX
-      // -------------------------
+        totalActive: risks.length,
+      });
 
       if (state.phase === "HALT") {
-        setSpeed(0);
-        setMovement("HALTED AT STATION");
+        speedRef.current = 0;
 
-        state.dwellRemaining -= TICK_SECONDS;
+        setSpeed(0);
+
+        setMovement(
+          "HALTED AT STATION"
+        );
+
+        state.dwellRemaining -=
+          TICK_SECONDS;
 
         const stationInfo =
-          getCurrentStationInfo(state.distance);
+          getCurrentStationInfo(
+            state.distance,
+            state.phase
+          );
 
         const station =
-          stationInfo.currentStation ||
-          stationDistances.find(
-            (item) =>
-              Math.abs(item.distance - state.distance) <
-              200
-          );
+          stationInfo.currentStation;
 
         if (station) {
           setTrainPosition(
-            getPositionFromDistance(station.distance)
+            getPositionFromDistance(
+              station.distance
+            )
           );
 
-          onStationUpdate?.({
-            currentStation: station.name,
+          const stationIndex =
+            stationDistances.indexOf(
+              station
+            );
+
+          callbacks.onStationUpdate?.({
+            currentStation:
+              station.name,
+
             nextStation:
               stationDistances[
-                stationDistances.indexOf(station) + 1
+                stationIndex + 1
               ]?.name || "—",
-            movement: "HALTED AT STATION",
+
+            movement:
+              "HALTED AT STATION",
           });
 
-          onLocationUpdate?.({
-            lat: station.lat ?? ROUTE[station.routeIndex][0],
-            lng: station.lng ?? ROUTE[station.routeIndex][1],
+          callbacks.onLocationUpdate?.({
+            lat:
+              ROUTE[
+                station.routeIndex
+              ][0],
+
+            lng:
+              ROUTE[
+                station.routeIndex
+              ][1],
+
             type: "At Station",
-            description: `Train is currently halted at ${station.name}.`,
+
+            description:
+              `Train is currently halted at ${station.name}.`,
           });
         }
 
-        if (state.dwellRemaining <= 0) {
-          if (
-            station?.type === "destination" ||
-            state.distance >= totalRouteDistance
-          ) {
-            state.destinationHold = true;
-            return;
-          }
-
-          state.phase = "ACCELERATE";
-        }
-
-        onProgressUpdate?.(
+        callbacks.onProgressUpdate?.(
           Math.min(
             100,
             Math.max(
               0,
-              (state.distance / totalRouteDistance) * 100
+              (state.distance /
+                totalRouteDistance) *
+                100
             )
           )
         );
 
+        if (
+          state.dwellRemaining <= 0
+        ) {
+          if (
+            state.lastArrivedStationIndex ===
+            stationDistances.length - 1
+          ) {
+            state.destinationHold =
+              true;
+
+            return;
+          }
+
+          state.phase =
+            "ACCELERATE";
+
+          speedRef.current = 0;
+
+          if (station) {
+            state.lastArrivedStationIndex =
+              stationDistances.indexOf(
+                station
+              );
+          }
+        }
+
         return;
       }
 
-      // =========================
-      // MOVEMENT
-      // =========================
-
       const normalSpeed = 60;
 
-      let targetSpeed = normalSpeed;
+      const riskSpeedLimit =
+        highestRisk
+          ? getRiskSpeedLimit(
+              highestRisk.severity
+            )
+          : normalSpeed;
 
-      if (highestRisk) {
-        targetSpeed = Math.min(
+      const targetSpeed =
+        Math.min(
           normalSpeed,
           riskSpeedLimit
         );
-      }
-
-      // -------------------------
-      // ACCELERATION
-      // -------------------------
-
-      if (state.phase === "ACCELERATE") {
-        const acceleration = 10;
-
-        setSpeed((previousSpeed) => {
-          const newSpeed = Math.min(
-            previousSpeed + acceleration,
-            targetSpeed
-          );
-
-          return newSpeed;
-        });
-
-        state.phase = "CRUISE";
-      }
-
-      // -------------------------
-      // CRUISE / DECELERATE
-      // -------------------------
-
-      const distanceToDestination =
-        totalRouteDistance - state.distance;
-
-      const destinationBrakeDistance = 900;
-
-      if (
-        distanceToDestination <
-        destinationBrakeDistance
-      ) {
-        state.phase = "DECELERATE";
-      }
-
-      // -------------------------
-      // APPROACH STATION
-      // -------------------------
 
       let approachingStation = null;
 
-      for (const station of stationDistances) {
+      for (
+        let i = 0;
+        i < stationDistances.length;
+        i++
+      ) {
+        const station =
+          stationDistances[i];
+
         const distanceToStation =
-          station.distance - state.distance;
+          station.distance -
+          state.distance;
 
         if (
           distanceToStation > 0 &&
-          distanceToStation < 1000
+          distanceToStation < 1000 &&
+          i >
+            state.lastArrivedStationIndex
         ) {
-          approachingStation = station;
+          approachingStation =
+            station;
+
           break;
         }
       }
 
       if (approachingStation) {
-        state.phase = "DECELERATE";
+        state.phase =
+          "DECELERATE";
       }
 
-      // -------------------------
-      // SPEED CALCULATION
-      // -------------------------
+      const distanceToDestination =
+        totalRouteDistance -
+        state.distance;
 
-      let currentSpeed = speed;
+      if (
+        distanceToDestination < 900
+      ) {
+        state.phase =
+          "DECELERATE";
+      }
 
-      if (state.phase === "DECELERATE") {
-        currentSpeed = Math.max(
-          12,
-          Math.min(currentSpeed || targetSpeed, targetSpeed)
-        );
+      if (
+        state.phase ===
+        "ACCELERATE"
+      ) {
+        speedRef.current =
+          Math.min(
+            speedRef.current + 10,
+            targetSpeed
+          );
+
+        state.phase = "CRUISE";
+      }
+
+      let currentSpeed =
+        speedRef.current;
+
+      if (
+        state.phase ===
+        "DECELERATE"
+      ) {
+        currentSpeed =
+          Math.max(
+            12,
+
+            Math.min(
+              currentSpeed ||
+                targetSpeed,
+
+              targetSpeed
+            )
+          );
       } else {
-        currentSpeed = Math.max(
-          20,
-          Math.min(currentSpeed || targetSpeed, targetSpeed)
-        );
+        currentSpeed =
+          Math.max(
+            20,
+
+            Math.min(
+              currentSpeed ||
+                targetSpeed,
+
+              targetSpeed
+            )
+          );
       }
 
-      // -------------------------
-      // CONVERT KM/H TO M/S
-      // -------------------------
+      speedRef.current =
+        currentSpeed;
+
+      setSpeed(currentSpeed);
 
       const speedMetersPerSecond =
-        (currentSpeed * 1000) / 3600;
+        (currentSpeed * 1000) /
+        3600;
 
       const distanceStep =
         speedMetersPerSecond *
         TICK_SECONDS *
         SIMULATION_TIME_SCALE;
 
-      state.distance += distanceStep;
+      state.distance +=
+        distanceStep;
 
-      // -------------------------
-      // STATION ARRIVAL CHECK
-      // -------------------------
+      let arrivedStation = null;
 
-      const arrivedStation =
-        stationDistances.find(
-          (station) =>
-            Math.abs(
-              state.distance - station.distance
-            ) < 90
-        );
+      let arrivedStationIndex = -1;
+
+      for (
+        let i = 0;
+        i < stationDistances.length;
+        i++
+      ) {
+        const station =
+          stationDistances[i];
+
+        if (
+          i <=
+          state.lastArrivedStationIndex
+        ) {
+          continue;
+        }
+
+        const distanceFromStation =
+          Math.abs(
+            state.distance -
+              station.distance
+          );
+
+        if (
+          distanceFromStation < 90
+        ) {
+          arrivedStation =
+            station;
+
+          arrivedStationIndex =
+            i;
+
+          break;
+        }
+      }
 
       if (arrivedStation) {
         state.distance =
           arrivedStation.distance;
 
         state.phase = "HALT";
+
         state.dwellRemaining =
           arrivedStation.dwellSeconds;
 
+        state.lastArrivedStationIndex =
+          arrivedStationIndex;
+
+        speedRef.current = 0;
+
         setSpeed(0);
-        setMovement("HALTED AT STATION");
+
+        setMovement(
+          "HALTED AT STATION"
+        );
 
         setTrainPosition(
-          getPositionFromDistance(state.distance)
+          getPositionFromDistance(
+            state.distance
+          )
         );
 
-        onStationUpdate?.({
-          currentStation: arrivedStation.name,
+        callbacks.onStationUpdate?.({
+          currentStation:
+            arrivedStation.name,
+
           nextStation:
             stationDistances[
-              stationDistances.indexOf(arrivedStation) + 1
+              arrivedStationIndex + 1
             ]?.name || "—",
-          movement: "HALTED AT STATION",
+
+          movement:
+            "HALTED AT STATION",
         });
 
-        onLocationUpdate?.({
-          lat: ROUTE[arrivedStation.routeIndex][0],
-          lng: ROUTE[arrivedStation.routeIndex][1],
+        callbacks.onLocationUpdate?.({
+          lat:
+            ROUTE[
+              arrivedStation
+                .routeIndex
+            ][0],
+
+          lng:
+            ROUTE[
+              arrivedStation
+                .routeIndex
+            ][1],
+
           type: "At Station",
-          description: `Train has arrived at ${arrivedStation.name}.`,
+
+          description:
+            `Train has arrived at ${arrivedStation.name}.`,
         });
 
-        onProgressUpdate?.(
-          (state.distance / totalRouteDistance) * 100
+        callbacks.onProgressUpdate?.(
+          Math.min(
+            100,
+            Math.max(
+              0,
+              (state.distance /
+                totalRouteDistance) *
+                100
+            )
+          )
         );
+
+        if (
+          arrivedStation.type ===
+          "destination"
+        ) {
+          state.destinationHold =
+            true;
+
+          state.phase = "HALT";
+
+          return;
+        }
 
         return;
       }
 
-      // -------------------------
-      // DESTINATION CHECK
-      // -------------------------
+      if (
+        state.distance >=
+        totalRouteDistance
+      ) {
+        state.distance =
+          totalRouteDistance;
 
-      if (state.distance >= totalRouteDistance) {
-        state.distance = totalRouteDistance;
-        state.destinationHold = true;
+        state.destinationHold =
+          true;
+
+        speedRef.current = 0;
 
         setTrainPosition(
           ROUTE[ROUTE.length - 1]
         );
 
         setSpeed(0);
-        setMovement("DESTINATION");
 
-        onProgressUpdate?.(100);
+        setMovement(
+          "DESTINATION"
+        );
+
+        callbacks.onProgressUpdate?.(
+          100
+        );
 
         return;
       }
 
-      // -------------------------
-      // UPDATE POSITION
-      // -------------------------
-
       const newPosition =
-        getPositionFromDistance(state.distance);
+        getPositionFromDistance(
+          state.distance
+        );
 
-      setTrainPosition(newPosition);
-      setSpeed(currentSpeed);
+      setTrainPosition(
+        newPosition
+      );
 
-      // -------------------------
-      // MOVEMENT STATUS
-      // -------------------------
+      let movementStatus =
+        "IN TRANSIT";
 
-      let movementStatus = "IN TRANSIT";
-
-      if (approachingStation) {
-        movementStatus = "APPROACHING";
+      if (
+        approachingStation
+      ) {
+        movementStatus =
+          "APPROACHING";
       }
 
-      if (state.phase === "DECELERATE") {
+      if (
+        state.phase ===
+        "DECELERATE"
+      ) {
         movementStatus =
           approachingStation
             ? "APPROACHING"
             : "DECELERATING";
       }
 
-      setMovement(movementStatus);
-
-      // -------------------------
-      // STATION CALLBACK
-      // -------------------------
+      setMovement(
+        movementStatus
+      );
 
       const stationInfo =
-        getCurrentStationInfo(state.distance);
+        getCurrentStationInfo(
+          state.distance,
+          state.phase
+        );
 
-      onStationUpdate?.({
+      callbacks.onStationUpdate?.({
         currentStation:
-          stationInfo.currentStation?.name ||
+          stationInfo
+            .currentStation
+            ?.name ||
           "In Transit",
 
         nextStation:
-          stationInfo.nextStation?.name ||
-          "Barddhaman Junction",
+          stationInfo
+            .nextStation
+            ?.name ||
+          "—",
 
-        movement: movementStatus,
+        movement:
+          movementStatus,
       });
 
-      // -------------------------
-      // LOCATION CALLBACK
-      // -------------------------
+      let locationType =
+        "In Transit";
 
-      let locationType = "In Transit";
       let locationDescription =
         "Train is moving along the scheduled route.";
 
-      if (approachingStation) {
-        locationType = "Approaching Station";
+      if (
+        approachingStation
+      ) {
+        locationType =
+          "Approaching Station";
 
-        locationDescription = `Train is approaching ${approachingStation.name}.`;
+        locationDescription =
+          `Train is approaching ${approachingStation.name}.`;
       }
 
-      onLocationUpdate?.({
-        lat: newPosition[0],
-        lng: newPosition[1],
-        type: locationType,
-        description: locationDescription,
-      });
+      callbacks.onLocationUpdate?.({
+        lat:
+          newPosition[0],
 
-      // -------------------------
-      // PROGRESS CALLBACK
-      // -------------------------
+        lng:
+          newPosition[1],
+
+        type:
+          locationType,
+
+        description:
+          locationDescription,
+      });
 
       const progress =
-        (state.distance / totalRouteDistance) * 100;
+        (state.distance /
+          totalRouteDistance) *
+        100;
 
-      onProgressUpdate?.(
-        Math.min(100, Math.max(0, progress))
+      callbacks.onProgressUpdate?.(
+        Math.min(
+          100,
+          Math.max(
+            0,
+            progress
+          )
+        )
       );
-
-      // -------------------------
-      // RISK CALLBACK
-      // -------------------------
-
-      const highestSeverity =
-        risks.length > 0
-          ? risks.reduce((highest, risk) =>
-              getSeverityRank(risk.severity) >
-              getSeverityRank(highest.severity)
-                ? risk
-                : highest
-            )
-          : null;
-
-      onRiskUpdate?.({
-        activeRisks: risks,
-        highestSeverity:
-          highestSeverity?.severity || "Normal",
-        totalActive: risks.length,
-      });
     }, TICK_SECONDS * 1000);
 
-    return () => clearInterval(interval);
-  }, [
-    riskZones,
-    speed,
-    routeDistances,
-    totalRouteDistance,
-    stationDistances,
-    onProgressUpdate,
-    onLocationUpdate,
-    onStationUpdate,
-    onRiskUpdate,
-  ]);
+    return () =>
+      clearInterval(interval);
+  }, []);
 
-  // =========================
-  // ROUTE COMPLETION
-  // =========================
+  const completedRoute =
+    useMemo(() => {
+      const progress =
+        (simulation.current.distance /
+          totalRouteDistance) *
+        100;
 
-  const completedRoute = useMemo(() => {
-    const progress =
-      (simulation.current.distance /
-        totalRouteDistance) *
-      100;
+      return [
+        ROUTE[0],
 
-    return [
-      ROUTE[0],
-      ...ROUTE.slice(
-        1,
-        Math.max(
+        ...ROUTE.slice(
           1,
-          Math.ceil((progress / 100) * ROUTE.length)
-        )
-      ),
+          Math.max(
+            1,
+            Math.ceil(
+              (progress / 100) *
+                ROUTE.length
+            )
+          )
+        ),
+
+        trainPosition,
+      ];
+    }, [
       trainPosition,
-    ];
-  }, [
-    trainPosition,
-    totalRouteDistance,
-  ]);
+      totalRouteDistance,
+    ]);
 
-  // =========================
-  // RISK STATUS
-  // =========================
+  const highestActiveRisk =
+    useMemo(() => {
+      if (!activeRisks.length) {
+        return null;
+      }
 
-  const highestActiveRisk = useMemo(() => {
-    if (!activeRisks.length) return null;
+      return activeRisks.reduce(
+        (highest, risk) =>
+          getSeverityRank(
+            risk.severity
+          ) >
+          getSeverityRank(
+            highest.severity
+          )
+            ? risk
+            : highest
+      );
+    }, [activeRisks]);
 
-    return activeRisks.reduce((highest, risk) =>
-      getSeverityRank(risk.severity) >
-      getSeverityRank(highest.severity)
-        ? risk
-        : highest
+  const currentProgress =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        (simulation.current.distance /
+          totalRouteDistance) *
+          100
+      )
     );
-  }, [activeRisks]);
-
-  // =========================
-  // RENDER
-  // =========================
 
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        minHeight: "500px",
+        minHeight: "450px",
         position: "relative",
         overflow: "hidden",
         borderRadius: "16px",
@@ -852,19 +1079,15 @@ function RailwayMap({
         style={{
           width: "100%",
           height: "100%",
-          minHeight: "500px",
+          minHeight: "450px",
         }}
       >
         <MapResizeHandler />
 
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
+          attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-
-        {/* =========================
-            FULL ROUTE
-        ========================= */}
 
         <Polyline
           positions={ROUTE}
@@ -875,10 +1098,6 @@ function RailwayMap({
           }}
         />
 
-        {/* =========================
-            COMPLETED ROUTE
-        ========================= */}
-
         <Polyline
           positions={completedRoute}
           pathOptions={{
@@ -888,40 +1107,72 @@ function RailwayMap({
           }}
         />
 
-        {/* =========================
-            RISK ZONES
-        ========================= */}
-
         {riskZones.map((risk) => {
+          const isActive =
+            activeRisks.some(
+              (activeRisk) =>
+                activeRisk.id ===
+                risk.id
+            );
+
           let fillOpacity = 0.12;
 
-          if (risk.severity === "High") {
-            fillOpacity = 0.22;
+          if (
+            risk.severity === "High"
+          ) {
+            fillOpacity =
+              isActive
+                ? 0.32
+                : 0.22;
           }
 
-          if (risk.severity === "Medium") {
-            fillOpacity = 0.16;
+          if (
+            risk.severity ===
+            "Medium"
+          ) {
+            fillOpacity =
+              isActive
+                ? 0.24
+                : 0.16;
           }
 
           return (
             <Circle
               key={risk.id}
-              center={[risk.lat, risk.lng]}
-              radius={risk.radius}
+              center={[
+                risk.lat,
+                risk.lng,
+              ]}
+              radius={
+                risk.radius
+              }
               pathOptions={{
                 color:
-                  risk.severity === "High"
+                  risk.severity ===
+                  "High"
                     ? "#dc2626"
-                    : risk.severity === "Medium"
+                    : risk.severity ===
+                      "Medium"
                     ? "#f59e0b"
                     : "#2563eb",
 
                 fillOpacity,
-                weight: 2,
+
+                weight:
+                  isActive
+                    ? 3
+                    : 2,
+
+                opacity:
+                  isActive
+                    ? 1
+                    : 0.75,
               }}
             >
               <Popup>
-                <strong>{risk.name}</strong>
+                <strong>
+                  {risk.name}
+                </strong>
 
                 <br />
 
@@ -929,48 +1180,84 @@ function RailwayMap({
 
                 <br />
 
-                Severity: {risk.severity}
+                Severity:{" "}
+                {risk.severity}
 
                 <br />
 
-                Impact: {risk.impact}
+                Impact:{" "}
+                {risk.impact}
+
+                {isActive && (
+                  <>
+                    <br />
+
+                    <strong>
+                      ACTIVE — TRAIN IN ZONE
+                    </strong>
+                  </>
+                )}
               </Popup>
             </Circle>
           );
         })}
 
-        {/* =========================
-            STATIONS
-        ========================= */}
-
         {STATIONS.map((station) => {
           const position =
-            ROUTE[station.routeIndex];
+            ROUTE[
+              station.routeIndex
+            ];
 
           const isCurrent =
             Math.abs(
-              simulation.current.distance -
-                routeDistances[station.routeIndex]
+              simulation.current
+                .distance -
+                routeDistances[
+                  station.routeIndex
+                ]
             ) < 150;
 
           return (
             <Marker
-              key={station.name}
-              position={position}
+              key={
+                station.name
+              }
+              position={
+                position
+              }
               icon={createStationIcon(
                 station.type,
                 isCurrent
               )}
             >
+              <Tooltip
+                direction="top"
+                offset={[
+                  0,
+                  -8,
+                ]}
+                opacity={0.95}
+              >
+                <strong>
+                  {station.name}
+                </strong>
+              </Tooltip>
+
               <Popup>
-                <strong>{station.name}</strong>
+                <strong>
+                  {station.name}
+                </strong>
 
                 <br />
 
                 Status:{" "}
-                {station.type === "origin"
+                {isCurrent
+                  ? "Current"
+                  : station.type ===
+                    "origin"
                   ? "Origin"
-                  : station.type === "destination"
+                  : station.type ===
+                    "destination"
                   ? "Destination"
                   : "Major Station"}
               </Popup>
@@ -978,12 +1265,10 @@ function RailwayMap({
           );
         })}
 
-        {/* =========================
-            LIVE TRAIN
-        ========================= */}
-
         <Marker
-          position={trainPosition}
+          position={
+            trainPosition
+          }
           icon={trainIcon}
           zIndexOffset={1000}
         >
@@ -999,47 +1284,46 @@ function RailwayMap({
 
             <br />
 
-            Speed: {Math.round(speed)} km/h
+            Speed:{" "}
+            {Math.round(speed)} km/h
 
             <br />
 
             Route Progress:{" "}
             {Math.round(
-              (simulation.current.distance /
-                totalRouteDistance) *
-                100
+              currentProgress
             )}
             %
           </Popup>
         </Marker>
       </MapContainer>
 
-      {/* =========================
-          OPERATIONAL TELEMETRY
-      ========================= */}
-
       <div
         style={{
           position: "absolute",
-          top: "16px",
-          left: "16px",
+          top: "12px",
+          left: "12px",
           zIndex: 1000,
-          background: "rgba(15, 23, 42, 0.92)",
+          background:
+            "rgba(15, 23, 42, 0.92)",
           color: "white",
-          padding: "12px 16px",
-          borderRadius: "12px",
+          padding: "10px 13px",
+          borderRadius: "10px",
           boxShadow:
             "0 4px 18px rgba(0,0,0,0.25)",
-          minWidth: "190px",
-          backdropFilter: "blur(8px)",
+          minWidth: "175px",
+          backdropFilter:
+            "blur(8px)",
         }}
       >
         <div
           style={{
-            fontSize: "11px",
+            fontSize: "10px",
             opacity: 0.7,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            letterSpacing:
+              "0.08em",
+            textTransform:
+              "uppercase",
           }}
         >
           Operational Telemetry
@@ -1047,7 +1331,7 @@ function RailwayMap({
 
         <div
           style={{
-            fontSize: "18px",
+            fontSize: "16px",
             fontWeight: 700,
             marginTop: "3px",
           }}
@@ -1057,44 +1341,72 @@ function RailwayMap({
 
         <div
           style={{
-            marginTop: "6px",
-            fontSize: "13px",
+            marginTop: "5px",
+            fontSize: "12px",
             opacity: 0.85,
           }}
         >
-          Speed: {Math.round(speed)} km/h
+          Speed:{" "}
+          {Math.round(speed)} km/h
         </div>
-      </div>
 
-      {/* =========================
-          LIVE BADGE
-      ========================= */}
+        <div
+          style={{
+            marginTop: "4px",
+            fontSize: "11px",
+            opacity: 0.75,
+          }}
+        >
+          Progress:{" "}
+          {Math.round(
+            currentProgress
+          )}
+          %
+        </div>
+
+        {highestActiveRisk && (
+          <div
+            style={{
+              marginTop: "5px",
+              fontSize: "11px",
+              color: "#fca5a5",
+              fontWeight: 600,
+            }}
+          >
+            Risk:{" "}
+            {
+              highestActiveRisk.severity
+            }
+          </div>
+        )}
+      </div>
 
       <div
         style={{
           position: "absolute",
-          top: "16px",
-          right: "16px",
+          top: "12px",
+          right: "12px",
           zIndex: 1000,
           background: "white",
-          padding: "8px 12px",
+          padding: "7px 10px",
           borderRadius: "999px",
           fontWeight: 700,
-          fontSize: "12px",
+          fontSize: "10px",
           boxShadow:
             "0 3px 12px rgba(0,0,0,0.2)",
           display: "flex",
           alignItems: "center",
-          gap: "7px",
+          gap: "6px",
         }}
       >
         <span
           style={{
-            width: "8px",
-            height: "8px",
+            width: "7px",
+            height: "7px",
             borderRadius: "50%",
             background: "#22c55e",
-            display: "inline-block",
+            display:
+              "inline-block",
             animation:
               "railwayPulse 1.2s infinite",
           }}
@@ -1103,23 +1415,21 @@ function RailwayMap({
         LIVE SIMULATION
       </div>
 
-      {/* =========================
-          RISK INDICATOR
-      ========================= */}
-
       {highestActiveRisk && (
         <div
           style={{
             position: "absolute",
-            right: "16px",
-            bottom: "60px",
+            right: "12px",
+            bottom: "55px",
             zIndex: 1000,
-            background: "rgba(255,255,255,0.96)",
-            padding: "10px 14px",
-            borderRadius: "10px",
+            background:
+              "rgba(255,255,255,0.96)",
+            padding: "8px 11px",
+            borderRadius: "9px",
             boxShadow:
               "0 3px 14px rgba(0,0,0,0.2)",
-            fontSize: "12px",
+            fontSize: "10px",
+            minWidth: "165px",
           }}
         >
           <strong>
@@ -1133,32 +1443,54 @@ function RailwayMap({
           <br />
 
           Severity:{" "}
-          {highestActiveRisk.severity}
+          {
+            highestActiveRisk.severity
+          }
+
+          <br />
+
+          Impact:{" "}
+          {
+            highestActiveRisk.impact
+          }
         </div>
       )}
 
-      {/* =========================
+      {/* =================================================
           MAP LEGEND
-      ========================= */}
+          ================================================= */}
 
       <div
         style={{
           position: "absolute",
-          bottom: "16px",
-          left: "16px",
+          bottom: "65px",
+          left: "12px",
           zIndex: 1000,
-          background: "rgba(255,255,255,0.95)",
+          background:
+            "rgba(8, 19, 33, 0.96)",
+          color: "white",
           padding: "10px 12px",
           borderRadius: "10px",
+          border:
+            "1px solid rgba(255,255,255,0.10)",
           boxShadow:
-            "0 3px 12px rgba(0,0,0,0.18)",
-          fontSize: "11px",
+            "0 4px 18px rgba(0,0,0,0.30)",
+          fontSize: "9px",
+          minWidth: "145px",
+          backdropFilter:
+            "blur(8px)",
         }}
       >
         <div
           style={{
             fontWeight: 700,
             marginBottom: "7px",
+            fontSize: "9px",
+            letterSpacing:
+              "0.12em",
+            color: "#67e8f9",
+            textTransform:
+              "uppercase",
           }}
         >
           MAP LEGEND
@@ -1167,60 +1499,114 @@ function RailwayMap({
         <div
           style={{
             display: "flex",
-            gap: "7px",
+            gap: "8px",
             alignItems: "center",
-            marginBottom: "4px",
+            marginBottom: "5px",
           }}
         >
           <span
             style={{
-              width: "18px",
-              height: "4px",
+              width: "20px",
+              height: "3px",
               background: "#2563eb",
-              display: "inline-block",
+              display:
+                "inline-block",
+              borderRadius: "999px",
             }}
           />
 
-          Active Route
+          <span
+            style={{
+              color: "#cbd5e1",
+            }}
+          >
+            Monitored Route
+          </span>
         </div>
 
         <div
           style={{
             display: "flex",
-            gap: "7px",
+            gap: "8px",
+            alignItems: "center",
+            marginBottom: "5px",
+          }}
+        >
+          <span
+            style={{
+              width: "18px",
+              height: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              background:
+                "rgba(37,99,235,0.15)",
+              border:
+                "1px solid rgba(37,99,235,0.5)",
+              fontSize: "10px",
+            }}
+          >
+            🚆
+          </span>
+
+          <span
+            style={{
+              color: "#cbd5e1",
+            }}
+          >
+            Live Train
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
             alignItems: "center",
           }}
         >
-          <span>🚆</span>
+          <span
+            style={{
+              width: "13px",
+              height: "13px",
+              borderRadius: "50%",
+              background:
+                "rgba(245,158,11,0.18)",
+              border:
+                "2px solid #f59e0b",
+              display:
+                "inline-block",
+            }}
+          />
 
-          Live Train
+          <span
+            style={{
+              color: "#cbd5e1",
+            }}
+          >
+            Risk Zone
+          </span>
         </div>
       </div>
-
-      {/* =========================
-          BOTTOM NOTICE
-      ========================= */}
 
       <div
         style={{
           position: "absolute",
-          bottom: "16px",
-          right: "16px",
+          bottom: "12px",
+          right: "12px",
           zIndex: 1000,
-          background: "rgba(15,23,42,0.9)",
+          background:
+            "rgba(15,23,42,0.9)",
           color: "white",
-          padding: "7px 11px",
-          borderRadius: "8px",
-          fontSize: "10px",
+          padding: "6px 9px",
+          borderRadius: "7px",
+          fontSize: "8px",
           opacity: 0.9,
         }}
       >
         Prototype simulation • Railway Control Room
       </div>
-
-      {/* =========================
-          ANIMATION CSS
-      ========================= */}
 
       <style>
         {`
@@ -1255,7 +1641,12 @@ function RailwayMap({
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: rgba(37, 99, 235, 0.22);
+            background: rgba(
+              37,
+              99,
+              235,
+              0.22
+            );
             animation: trainGlow 1.2s infinite;
           }
 
@@ -1271,7 +1662,19 @@ function RailwayMap({
             align-items: center;
             justify-content: center;
             font-size: 20px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+            box-shadow:
+              0 3px 12px
+              rgba(0,0,0,0.3);
+          }
+
+          .station-marker-wrapper {
+            background: transparent !important;
+            border: none !important;
+          }
+
+          .train-marker-wrapper {
+            background: transparent !important;
+            border: none !important;
           }
 
           @keyframes trainGlow {
