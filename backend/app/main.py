@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.api.train import router as train_router
 
 app = FastAPI(
     title="Railway ETA AI Backend",
@@ -6,16 +7,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+# Register Train APIs
+app.include_router(train_router)
+
+
 @app.get("/")
 def root():
     return {
         "message": "Railway ETA AI Backend is running"
-    }
-@app.get("/trains/search")
-def search_train(train_number: str):
-    return {
-        "train_number": train_number,
-        "train_name": "Demo Express",
-        "status": "Running",
-        "message": "Train found successfully"
     }
