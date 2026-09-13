@@ -4,6 +4,7 @@ function App() {
   const [trainFound, setTrainFound] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   const [eta, setEta] = useState("10:47 PM");
+  const [safetyRequested, setSafetyRequested] = useState(false);
   
 
   const findTrain = () => {
@@ -169,11 +170,40 @@ function App() {
               </div>
             </div>
 
-            <button className="safety-button">
-              🛡️ Safety Assistance
-            </button>
+            <div className="safety-section">
+              <button
+                className="safety-button"
+                onClick={() => setSafetyRequested(true)}
+              >
+                🛡️ Safety Assistance
+              </button>
+            {safetyRequested && (
+              <div 
+            className="safety-request-card">
+                <strong>🛡️ Assistance Request Sent</strong>
+
+                <p>Status: REQUESTED</p>
+
+                <p>
+                  <strong>Station:</strong> New Bongaigaon
+                </p>
+
+              <p>
+                <strong>Coach:</strong> S5
+              </p>
+
+              <p>
+                <strong>Platform:</strong> 2
+              </p>
+
+              <small>Railway assistance team has been notified.</small>
+            </div>
+          )}
+            
+        </div>
           </section>
         )}
+      
       </main>
 
       <nav className="bottom-nav">
