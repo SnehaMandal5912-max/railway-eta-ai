@@ -1,9 +1,10 @@
 import { useState } from "react";
-
 function App() {
   const [trainNumber, setTrainNumber] = useState("");
   const [trainFound, setTrainFound] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
+  const [eta, setEta] = useState("10:47 PM");
+  
 
   const findTrain = () => {
     if (trainNumber.trim() === "12345") {
@@ -122,7 +123,7 @@ function App() {
 
             <div className="eta-card">
               <span className="status-label">DYNAMIC ETA</span>
-              <div className="eta">10:47 PM</div>
+              <div className="eta">{eta}</div>
               <p>Expected arrival at Guwahati</p>
             </div>
 
