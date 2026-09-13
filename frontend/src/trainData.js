@@ -21,32 +21,22 @@ const trainData = {
   delayReason: "Operational congestion",
   status: "On Route",
 
-  /*
-   * Prototype ML-related information.
-   * Later this can come directly from the ML/API service.
-   */
   predictionConfidence: 92,
 
-  /*
-   * Delay propagation model.
-   *
-   * propagationFactor represents how much of the
-   * current delay may continue towards each station.
-   */
   delayPropagation: [
     {
-      station: "Bandel Junction",
-      scheduledTime: "14:25",
-      propagatedDelay: 8,
-      propagationFactor: 0.67,
-      risk: "Medium",
+      station: "Asansol",
+      scheduledTime: "21:55",
+      propagatedDelay: 18,
+      propagationFactor: 0.78,
+      risk: "High",
     },
     {
-      station: "Barddhaman Junction",
-      scheduledTime: "15:15",
-      propagatedDelay: 5,
-      propagationFactor: 0.42,
-      risk: "Low",
+      station: "Dhanbad",
+      scheduledTime: "22:30",
+      propagatedDelay: 15,
+      propagationFactor: 0.65,
+      risk: "Medium",
     },
   ],
 
@@ -60,22 +50,19 @@ const trainData = {
     {
       type: "congestion",
       title: "Operational Congestion",
-      message:
-        "Moderate congestion detected on the route.",
+      message: "Moderate congestion detected on the route.",
       severity: "warning",
     },
     {
       type: "speed",
       title: "Speed Restriction",
-      message:
-        "Temporary speed restriction may affect ETA.",
+      message: "Temporary speed restriction may affect ETA.",
       severity: "info",
     },
     {
       type: "halt",
       title: "Unscheduled Halt",
-      message:
-        "No unscheduled halt detected.",
+      message: "No unscheduled halt detected.",
       severity: "normal",
     },
   ],

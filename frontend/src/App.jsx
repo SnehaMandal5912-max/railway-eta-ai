@@ -3,6 +3,7 @@ import RailwayMap from "./map";
 
 import {
   getTrainStatus,
+  getTrainRoute,
   getETA,
   getAlerts,
   getRiskZones,
@@ -21,6 +22,7 @@ import {
 
 function App() {
   const [train, setTrain] = useState(null);
+  const [routeData, setRouteData] = useState(null);
   const [eta, setEta] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [riskZones, setRiskZones] = useState([]);
@@ -46,7 +48,7 @@ function App() {
 
   /* =====================================================
      TRAIN SEARCH
-  ===================================================== */
+     ===================================================== */
 
   const handleTrainSearch = () => {
     const query = searchInput.trim().toLowerCase();
@@ -94,7 +96,7 @@ function App() {
 
   /* =====================================================
      LOAD DASHBOARD DATA
-  ===================================================== */
+     ===================================================== */
 
   useEffect(() => {
     let mounted = true;
@@ -103,12 +105,14 @@ function App() {
       try {
         const [
           trainData,
+          routeDataResponse,
           etaData,
           alertData,
           riskData,
           safetyData,
         ] = await Promise.all([
           getTrainStatus(),
+          getTrainRoute(),
           getETA(),
           getAlerts(),
           getRiskZones(),
@@ -118,6 +122,7 @@ function App() {
         if (!mounted) return;
 
         setTrain(trainData || null);
+        setRouteData(routeDataResponse || null);
         setEta(etaData || null);
 
         setAlerts(
@@ -166,7 +171,7 @@ function App() {
 
   /* =====================================================
      UPDATE SEARCHED TRAIN
-  ===================================================== */
+     ===================================================== */
 
   useEffect(() => {
     if (!searchedTrain || !train) return;
@@ -181,7 +186,7 @@ function App() {
 
   /* =====================================================
      ETA HISTORY
-  ===================================================== */
+     ===================================================== */
 
   useEffect(() => {
     if (!liveEta?.predictedEta) return;
@@ -244,7 +249,7 @@ function App() {
 
   /* =====================================================
      LIVE ETA SIMULATION
-  ===================================================== */
+     ===================================================== */
 
   useEffect(() => {
     if (!eta?.predictedEta) return;
@@ -319,7 +324,7 @@ function App() {
 
   /* =====================================================
      BASIC VALUES
-  ===================================================== */
+     ===================================================== */
 
   const currentDelay =
     Number(
@@ -339,16 +344,28 @@ function App() {
   const liveCurrentStation =
     stationInfo?.currentStation ||
     train?.currentStation ||
+    train?.current_station ||
     "Monitoring";
 
   const liveNextStation =
     stationInfo?.nextStation !== undefined
       ? stationInfo.nextStation
-      : train?.nextStation || "—";
+      : train?.nextStation ||
+        train?.next_station ||
+        "—";
+
+  const liveFinalDestination =
+    eta?.finalDestination ||
+    eta?.destination ||
+    routeData?.finalDestination ||
+    routeData?.destination ||
+    train?.finalDestination ||
+    train?.destination ||
+    "—";
 
   /* =====================================================
      SAFETY SUMMARY
-  ===================================================== */
+     ===================================================== */
 
   const safetySummary = useMemo(() => {
     const requests = Array.isArray(
@@ -399,99 +416,174 @@ function App() {
 
   /* =====================================================
      DELAY PROPAGATION
-  ===================================================== */
+     ===================================================== */
 
   const propagation = useMemo(() => {
-    if (!train?.delayPropagation) {
-      return [];
+  const delayPropagationData =
+    Array.isArray(train?.delayPropagation) &&
+    train.delayPropagation.length > 0
+      ? train.delayPropagation
+      : [
+          {
+            station:
+              train?.next_station ||
+              train?.nextStation ||
+              "Dhanbad",
+            scheduledTime: null,
+            propagationFactor: 0.67,
+            risk: "Medium",
+          },
+          {
+            station:
+              train?.destination ||
+              train?.finalDestination ||
+              "New Delhi",
+            scheduledTime: null,
+            propagationFactor: 0.42,
+            risk: "Low",
+          },
+        ];
+
+  const stationOrder = [
+    "Kolkata",
+    "Asansol",
+    "Dhanbad",
+    "Gomoh",
+    "Koderma",
+    "New Delhi",
+  ];
+
+  const currentStationIndex =
+    stationOrder.findIndex(
+      (station) =>
+        station.toLowerCase() ===
+        String(liveCurrentStation || "")
+          .trim()
+          .toLowerCase()
+    );
+
+  const downstreamPropagation =
+    delayPropagationData.filter((item) => {
+      const itemStation = String(
+        item?.station ||
+          item?.stationName ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const stationIndex =
+        stationOrder.findIndex(
+          (station) =>
+            station.toLowerCase() ===
+            itemStation
+        );
+
+      if (stationIndex === -1) {
+        return false;
+      }
+
+      if (currentStationIndex === -1) {
+        return true;
+      }
+
+      return stationIndex > currentStationIndex;
+    });
+
+  const convertTimeToMinutes = (timeString) => {
+    if (!timeString) return null;
+
+    const parts =
+      String(timeString).split(":");
+
+    if (parts.length !== 2) {
+      return null;
     }
 
-    const convertTimeToMinutes = (timeString) => {
-      if (!timeString) return null;
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
 
-      const parts = String(timeString).split(":");
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes)
+    ) {
+      return null;
+    }
 
-      if (parts.length !== 2) return null;
+    return hours * 60 + minutes;
+  };
 
-      const hours = Number(parts[0]);
-      const minutes = Number(parts[1]);
+  const formatMinutesToTime = (
+    totalMinutes
+  ) => {
+    if (totalMinutes === null) {
+      return "—";
+    }
 
-      if (
-        Number.isNaN(hours) ||
-        Number.isNaN(minutes)
-      ) {
-        return null;
-      }
+    const normalized =
+      ((totalMinutes % 1440) + 1440) %
+      1440;
 
-      return hours * 60 + minutes;
-    };
+    const hours =
+      Math.floor(normalized / 60);
 
-    const formatMinutesToTime = (totalMinutes) => {
-      if (totalMinutes === null) {
-        return "—";
-      }
+    const minutes =
+      normalized % 60;
 
-      const normalized =
-        ((totalMinutes % 1440) + 1440) %
-        1440;
+    return `${String(hours).padStart(
+      2,
+      "0"
+    )}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  };
 
-      const hours =
-        Math.floor(normalized / 60);
+  return downstreamPropagation.map(
+    (item) => {
+      const factor =
+        Number(
+          item.propagationFactor
+        ) || 0;
 
-      const minutes =
-        normalized % 60;
+      const calculatedDelay =
+        Math.max(
+          0,
+          Math.round(
+            currentDelay * factor
+          )
+        );
 
-      return `${String(hours).padStart(
-        2,
-        "0"
-      )}:${String(minutes).padStart(
-        2,
-        "0"
-      )}`;
-    };
+      const scheduledMinutes =
+        convertTimeToMinutes(
+          item.scheduledTime
+        );
 
-    return train.delayPropagation.map(
-      (item) => {
-        const factor =
-          Number(
-            item.propagationFactor
-          ) || 0;
+      const projectedArrival =
+        scheduledMinutes === null
+          ? "—"
+          : formatMinutesToTime(
+              scheduledMinutes +
+                calculatedDelay
+            );
 
-        const calculatedDelay =
-          Math.max(
-            0,
-            Math.round(
-              currentDelay * factor
-            )
-          );
-
-        const scheduledMinutes =
-          convertTimeToMinutes(
-            item.scheduledTime
-          );
-
-        const projectedArrival =
-          scheduledMinutes === null
-            ? "—"
-            : formatMinutesToTime(
-                scheduledMinutes +
-                  calculatedDelay
-              );
-
-        return {
-          ...item,
-          calculatedDelay,
-          projectedArrival,
-          propagationPercentage:
-            Math.round(factor * 100),
-        };
-      }
-    );
-  }, [train, currentDelay]);
-
+      return {
+        ...item,
+        calculatedDelay,
+        projectedArrival,
+        propagationPercentage:
+          Math.round(factor * 100),
+      };
+    }
+  );
+}, [
+  train,
+  currentDelay,
+  liveCurrentStation,
+]);
   /* =====================================================
      ROUTE RISK
-  ===================================================== */
+     ===================================================== */
 
   const routeRisk = useMemo(() => {
     const activeRisks =
@@ -504,9 +596,7 @@ function App() {
     };
 
     if (activeRisks.length === 0) {
-      return riskZones.length > 0
-        ? "MEDIUM"
-        : "LOW";
+      return "LOW";
     }
 
     let highest = 0;
@@ -520,11 +610,16 @@ function App() {
       );
     });
 
-    if (highest === 3) return "HIGH";
-    if (highest === 2) return "MEDIUM";
+    if (highest === 3) {
+      return "HIGH";
+    }
+
+    if (highest === 2) {
+      return "MEDIUM";
+    }
 
     return "LOW";
-  }, [riskInfo, riskZones]);
+  }, [riskInfo]);
 
   const routeRiskClass =
     routeRisk === "HIGH"
@@ -533,9 +628,16 @@ function App() {
       ? "text-yellow-400"
       : "text-emerald-400";
 
+  const activeRiskDisplay =
+    Array.isArray(
+      riskInfo?.activeRisks
+    )
+      ? riskInfo.activeRisks
+      : [];
+
   /* =====================================================
      WHY ETA CHANGED
-  ===================================================== */
+     ===================================================== */
 
   const etaReasons = useMemo(() => {
     const reasons = [];
@@ -565,11 +667,14 @@ function App() {
         Math.max(
           ...propagation.map(
             (item) =>
-              item.calculatedDelay || 0
+              item.calculatedDelay ||
+              0
           )
         );
 
-      if (maximumPropagation > 0) {
+      if (
+        maximumPropagation > 0
+      ) {
         reasons.push({
           label:
             "Delay propagation",
@@ -592,13 +697,17 @@ function App() {
             "congestion" ||
           alert?.title
             ?.toLowerCase()
-            .includes("congestion")
+            .includes(
+              "congestion"
+            )
       );
 
     const trainHasCongestion =
       train?.delayReason
         ?.toLowerCase()
-        .includes("congestion");
+        .includes(
+          "congestion"
+        );
 
     if (
       hasCongestion ||
@@ -620,10 +729,13 @@ function App() {
     const hasSpeedRestriction =
       alerts.some(
         (alert) =>
-          alert?.type === "speed" ||
+          alert?.type ===
+            "speed" ||
           alert?.title
             ?.toLowerCase()
-            .includes("speed")
+            .includes(
+              "speed"
+            )
       );
 
     if (hasSpeedRestriction) {
@@ -640,12 +752,12 @@ function App() {
       });
     }
 
-    const activeRisks =
-      riskInfo?.activeRisks || [];
-
-    if (activeRisks.length > 0) {
+    if (
+      activeRiskDisplay.length >
+      0
+    ) {
       const highestActiveRisk =
-        activeRisks.reduce(
+        activeRiskDisplay.reduce(
           (highest, risk) => {
             const rank = {
               Low: 1,
@@ -654,8 +766,9 @@ function App() {
             };
 
             return (
-              (rank[risk?.severity] ||
-                0) >
+              (rank[
+                risk?.severity
+              ] || 0) >
               (rank[
                 highest?.severity
               ] || 0)
@@ -691,19 +804,22 @@ function App() {
       "HALTED AT STATION"
     ) {
       reasons.push({
-        label: "Station dwell",
+        label:
+          "Station dwell",
 
         detail:
           `Train is currently halted at ${liveCurrentStation}. Station dwell time is included in the operational forecast.`,
 
-        impact: "ETA monitored",
+        impact:
+          "ETA monitored",
 
         type: "halt",
       });
     }
 
     if (
-      liveMovement === "APPROACHING"
+      liveMovement ===
+      "APPROACHING"
     ) {
       reasons.push({
         label:
@@ -712,7 +828,8 @@ function App() {
         detail:
           `Train is approaching ${liveNextStation}. Speed adjustment is being considered in the live simulation.`,
 
-        impact: "ETA monitored",
+        impact:
+          "ETA monitored",
 
         type: "station",
       });
@@ -738,7 +855,7 @@ function App() {
     propagation,
     alerts,
     train,
-    riskInfo,
+    activeRiskDisplay,
     liveMovement,
     liveCurrentStation,
     liveNextStation,
@@ -746,7 +863,7 @@ function App() {
 
   /* =====================================================
      ALERT COUNT
-  ===================================================== */
+     ===================================================== */
 
   const warningAlerts =
     alerts.filter(
@@ -757,12 +874,13 @@ function App() {
           "warning" ||
         String(
           alert?.severity || ""
-        ).toLowerCase() === "high"
+        ).toLowerCase() ===
+          "high"
     ).length;
 
   /* =====================================================
      LOADING
-  ===================================================== */
+     ===================================================== */
 
   if (!train || !eta) {
     return (
@@ -782,14 +900,12 @@ function App() {
 
   /* =====================================================
      DASHBOARD
-  ===================================================== */
+     ===================================================== */
 
   return (
     <div className="min-h-screen bg-[#06101d] text-white">
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* HEADER */}
 
       <header className="border-b border-white/10 bg-[#081321]">
 
@@ -978,10 +1094,6 @@ function App() {
 
       </header>
 
-      {/* =================================================
-          MAIN
-      ================================================= */}
-
       <main className="mx-auto max-w-[1600px] px-5 py-3">
 
         {/* KPI CARDS */}
@@ -1009,9 +1121,10 @@ function App() {
               <div>
 
                 <div className="text-xl font-bold text-white">
-                  {(liveEta?.predictedEta ||
-                    eta.predictedEta) ||
-                    "—"}
+                  {(
+                    liveEta?.predictedEta ||
+                    eta.predictedEta
+                  ) || "—"}
                 </div>
 
                 <div className="text-[9px] text-slate-600">
@@ -1062,11 +1175,9 @@ function App() {
                   width="100%"
                   height="100%"
                 >
-
                   <LineChart
                     data={etaHistory}
                   >
-
                     <XAxis
                       dataKey="time"
                       hide
@@ -1094,9 +1205,7 @@ function App() {
                       strokeWidth={2}
                       dot={false}
                     />
-
                   </LineChart>
-
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center text-[9px] text-slate-700">
@@ -1257,11 +1366,11 @@ function App() {
               <div className="text-right">
 
                 <div className="text-xs font-bold text-white">
-                  {riskZones.length}
+                  {activeRiskDisplay.length}
                 </div>
 
                 <div className="text-[8px] text-slate-600">
-                  risk zones
+                  active risk zones
                 </div>
 
               </div>
@@ -1329,6 +1438,18 @@ function App() {
             <div className="h-full min-h-[450px]">
 
               <RailwayMap
+                train={train}
+                routeData={routeData}
+                backendCurrentStation={
+                  liveCurrentStation
+                }
+                backendNextStation={
+                  liveNextStation
+                }
+                backendDestination={
+                  liveFinalDestination
+                }
+                riskZones={riskZones}
                 onLocationUpdate={
                   setMapLocation
                 }
@@ -1341,7 +1462,13 @@ function App() {
                 onStationInfo={
                   setStationInfo
                 }
+                onStationUpdate={
+                  setStationInfo
+                }
                 onRiskInfo={
+                  setRiskInfo
+                }
+                onRiskUpdate={
                   setRiskInfo
                 }
               />
@@ -1463,12 +1590,12 @@ function App() {
               <div className="mt-1 flex justify-between text-[8px] text-slate-600">
 
                 <span>
-                  {train.currentStation ||
+                  {liveCurrentStation ||
                     "Origin"}
                 </span>
 
                 <span>
-                  {train.finalDestination ||
+                  {liveFinalDestination ||
                     "Destination"}
                 </span>
 
@@ -1656,7 +1783,7 @@ function App() {
 
         <section className="mt-3 grid gap-3 lg:grid-cols-2">
 
-          {/* RISK MONITOR */}
+          {/* ACTIVE RISK MONITOR */}
 
           <div className="rounded-xl border border-red-400/10 bg-[#0a1424] p-3">
 
@@ -1669,7 +1796,7 @@ function App() {
                 </div>
 
                 <div className="text-[9px] text-slate-600">
-                  Track and wildlife operational risk zones
+                  Only risks currently affecting the train section
                 </div>
 
               </div>
@@ -1684,13 +1811,13 @@ function App() {
 
             <div className="mt-2 space-y-1.5">
 
-              {riskZones.length ===
+              {activeRiskDisplay.length ===
               0 ? (
                 <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[10px] text-slate-600">
-                  No active risk zones reported.
+                  No active risk zones around the train.
                 </div>
               ) : (
-                riskZones
+                activeRiskDisplay
                   .slice(0, 5)
                   .map(
                     (
@@ -1964,8 +2091,6 @@ function App() {
         </section>
 
       </main>
-
-      {/* FOOTER */}
 
       <footer className="border-t border-white/10 bg-[#081321]">
 
