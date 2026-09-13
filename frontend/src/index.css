@@ -409,4 +409,21 @@ button {
     gap: 20px;
     justify-content: space-around;
   }
+  .delay-reason {
+  background: #fff8ed;
+  border: 1px solid #f3d6a4;
+  border-radius: 18px;
+  padding: 25px;
+  margin-top: 20px;
+}
+
+.delay-reason h3 {
+  color: #a85d00;
+  margin: 12px 0 8px;
+}
+
+.delay-reason p {
+  color: var(--muted);
+  margin: 0;
+}
 }

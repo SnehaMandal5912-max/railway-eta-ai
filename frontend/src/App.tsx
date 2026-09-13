@@ -133,6 +133,12 @@ function App() {
               <p>Train is currently approaching this station.</p>
             </div>
 
+            <div className="delay-reason">
+              <span className="status-label">DELAY INFORMATION</span>
+              <h3>⚠️ Delay: 17 minutes</h3>
+              <p>Verified reason currently unavailable.</p>
+            </div>
+
             <div className="route">
               <h3>Journey Progress</h3>
 
