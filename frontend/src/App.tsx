@@ -92,11 +92,34 @@ function App() {
               <h3>Quick Access</h3>
 
               <div className="quick-grid">
-                <div>🚆<strong>My Journey</strong><span>Track your train</span></div>
-                <div>🛡️<strong>Safety</strong><span>Get assistance</span></div>
-                <div>⚠️<strong>Alerts</strong><span>Track & wildlife alerts</span></div>
-                <div>📍<strong>Destination</strong><span>Explore places</span></div>
+                <div>
+                🔍
+                  <strong>Search Train</strong>
+                  <span>Find your train</span>
+                </div>
+
+                <div>
+                🚆
+                  <strong>My Journey</strong>
+                  <span>Track journey</span>
+                </div>
+
+                <div>
+                🛡️
+                  <strong>Safety</strong>
+                  <span>Get assistance</span>
+                </div>
+
+                <div
+                  className="destination-card"
+                  onClick={() => alert("Destination Intelligence selected")}
+                >
+                  📍
+                  <strong>Destination</strong>
+                  <span>Explore places</span>
+                </div>
               </div>
+              
             </section>
           </>
         ) : (
