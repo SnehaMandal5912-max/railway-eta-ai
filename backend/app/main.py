@@ -9,6 +9,7 @@ from app.api.delay_prediction import router as delay_prediction_router
 from app.api.delay_reason import router as delay_reason_router
 from app.api.route_info import router as route_info_router
 from app.api.station_info import router as station_info_router
+from app.api.assistance import router as assistance_router
 
 app = FastAPI(
     title="Railway ETA AI Backend",
@@ -25,6 +26,7 @@ app.include_router(delay_prediction_router)
 app.include_router(delay_reason_router)
 app.include_router(route_info_router)
 app.include_router(station_info_router)
+app.include_router(assistance_router)
 
 @app.get("/")
 def root():
