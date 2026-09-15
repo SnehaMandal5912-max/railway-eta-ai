@@ -6,6 +6,7 @@ function App() {
   const [eta, setEta] = useState("10:47 PM");
   const [safetyRequested, setSafetyRequested] = useState(false);
   const [showDestination, setShowDestination] = useState(false);
+  const [showSafety, setShowSafety] = useState(false);
   
 
   const findTrain = () => {
@@ -29,12 +30,54 @@ function App() {
       </header>
 
       <main className="main">
-        {showDestination ? (
+        {showSafety ? (
           <section className="journey-page">
-            <button
-            className="back-button"
-      onClick={() => setShowDestination(false)}
-    >
+                  <button className="back-button"
+        onClick={() => setShowSafety(false)}
+      >
+        ← Back
+      </button>
+
+      <p className="welcome">SAFETY ASSISTANCE</p>
+
+      <h2>Passenger Safety</h2>
+
+      <p className="subtitle">
+        Request railway assistance during your journey.
+      </p>
+
+      <div className="status-card">
+        <span className="status-label">CURRENT JOURNEY</span>
+        <h3>🚆 Train 12345</h3>
+        <p>Next station: New Bongaigaon</p>
+      </div>
+
+      <div className="safety-section">
+        <button
+          className="safety-button"
+          onClick={() => setSafetyRequested(true)}
+        >
+          🛡️ Request Assistance
+        </button>
+
+        {safetyRequested && (
+          <div className="safety-request-card">
+            <strong>🛡️ Assistance Request Sent</strong>
+            <p>Status: REQUESTED</p>
+            <p><strong>Station:</strong> New Bongaigaon</p>
+            <p><strong>Coach:</strong> S5</p>
+            <p><strong>Platform:</strong> 2</p>
+            <small>Railway assistance team has been notified.</small>
+          </div>
+        )}
+            </div>
+    </section>
+  ) : showDestination ? (
+    <section className="journey-page">
+      <button
+        className="back-button"
+        onClick={() => setShowDestination(false)}
+      >
       ← Back
     </button>
 
@@ -280,28 +323,47 @@ function App() {
       
       </main>
 
-            <nav className="bottom-nav">
-        <button
-          onClick={() => {
-            setShowJourney(false);
-            setShowDestination(false);
-          }}
-        >
-          ⌂ Home
-        </button>
+          <nav className="bottom-nav">
+  <button
+    onClick={() => {
+      setShowJourney(false);
+      setShowDestination(false);
+      setShowSafety(false);
+    }}
+  >
+    ⌂ Home
+  </button>
 
-        <button onClick={() => setShowJourney(true)}>
-          🚆 Journey
-        </button>
+  <button
+    onClick={() => {
+      setShowJourney(true);
+      setShowDestination(false);
+      setShowSafety(false);
+    }}
+  >
+    🚆 Journey
+  </button>
 
-        <button onClick={() => setShowJourney(true)}>
-          🛡 Safety
-        </button>
+  <button
+    onClick={() => {
+      setShowJourney(false);
+      setShowDestination(false);
+      setShowSafety(true);
+    }}
+  >
+    🛡 Safety
+  </button>
 
-        <button onClick={() => setShowDestination(true)}>
-          ☰ More
-        </button>
-      </nav>
+  <button
+    onClick={() => {
+      setShowJourney(false);
+      setShowDestination(true);
+      setShowSafety(false);
+    }}
+  >
+    ⋯ More
+  </button>
+</nav>
     </div>
   );
 }
