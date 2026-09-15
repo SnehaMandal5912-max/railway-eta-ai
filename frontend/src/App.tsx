@@ -280,11 +280,27 @@ function App() {
       
       </main>
 
-      <nav className="bottom-nav">
-        <span>⌂ Home</span>
-        <span>🚆 Journey</span>
-        <span>🛡 Safety</span>
-        <span>☰ More</span>
+            <nav className="bottom-nav">
+        <button
+          onClick={() => {
+            setShowJourney(false);
+            setShowDestination(false);
+          }}
+        >
+          ⌂ Home
+        </button>
+
+        <button onClick={() => setShowJourney(true)}>
+          🚆 Journey
+        </button>
+
+        <button onClick={() => setShowJourney(true)}>
+          🛡 Safety
+        </button>
+
+        <button onClick={() => setShowDestination(true)}>
+          ☰ More
+        </button>
       </nav>
     </div>
   );
