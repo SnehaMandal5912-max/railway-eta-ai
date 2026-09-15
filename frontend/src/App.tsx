@@ -5,6 +5,7 @@ function App() {
   const [showJourney, setShowJourney] = useState(false);
   const [eta, setEta] = useState("10:47 PM");
   const [safetyRequested, setSafetyRequested] = useState(false);
+  const [showDestination, setShowDestination] = useState(false);
   
 
   const findTrain = () => {
@@ -28,8 +29,58 @@ function App() {
       </header>
 
       <main className="main">
-        {!showJourney ? (
-          <>
+        {showDestination ? (
+          <section className="journey-page">
+            <button
+            className="back-button"
+      onClick={() => setShowDestination(false)}
+    >
+      ← Back
+    </button>
+
+    <p className="welcome">DESTINATION INTELLIGENCE</p>
+
+    <h2>Explore Guwahati</h2>
+
+    <p className="subtitle">
+      Discover places, culture, history and useful travel information.
+    </p>
+
+    <div className="status-card">
+      <span className="status-label">DESTINATION</span>
+      <h3>📍 Guwahati</h3>
+      <p>
+        Gateway to Northeast India and a major city of Northeast India.
+      </p>
+    </div>
+
+    <div className="quick-grid">
+      <div>
+        🏛️
+        <strong>History & Culture</strong>
+        <span>Explore local heritage</span>
+      </div>
+
+      <div>
+        🌿
+        <strong>Nearby Attractions</strong>
+        <span>Discover places to visit</span>
+      </div>
+
+      <div>
+        🍽️
+        <strong>Local Experience</strong>
+        <span>Food and culture</span>
+      </div>
+
+      <div>
+        🧭
+        <strong>Travel Information</strong>
+        <span>Useful destination tips</span>
+      </div>
+    </div>
+  </section>
+) : !showJourney ? (       <>
             <p className="welcome">WELCOME ABOARD</p>
 
             <h2>Where is your train going?</h2>
@@ -112,7 +163,7 @@ function App() {
 
                 <div
                   className="destination-card"
-                  onClick={() => alert("Destination Intelligence selected")}
+                  onClick={() => setShowDestination(true)}
                 >
                   📍
                   <strong>Destination</strong>
