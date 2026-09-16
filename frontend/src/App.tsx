@@ -209,33 +209,49 @@ function App() {
               <h3>Quick Access</h3>
 
               <div className="quick-grid">
-                <div>
-                🔍
-                  <strong>Search Train</strong>
-                  <span>Find your train</span>
-                </div>
+  <div>
+    🔍
+    <strong>Search Train</strong>
+    <span>Find your train</span>
+  </div>
 
-                <div>
-                🚆
-                  <strong>My Journey</strong>
-                  <span>Track journey</span>
-                </div>
+  <div
+    onClick={() => {
+      setShowJourney(true);
+      setShowDestination(false);
+      setShowSafety(false);
+    }}
+  >
+    🚆
+    <strong>My Journey</strong>
+    <span>Track journey</span>
+  </div>
 
-                <div>
-                🛡️
-                  <strong>Safety</strong>
-                  <span>Get assistance</span>
-                </div>
+  <div
+    onClick={() => {
+      setShowJourney(false);
+      setShowDestination(false);
+      setShowSafety(true);
+    }}
+  >
+    🛡️
+    <strong>Safety</strong>
+    <span>Get assistance</span>
+  </div>
 
-                <div
-                  className="destination-card"
-                  onClick={() => setShowDestination(true)}
-                >
-                  📍
-                  <strong>Destination</strong>
-                  <span>Explore places</span>
-                </div>
-              </div>
+  <div
+    className="destination-card"
+    onClick={() => {
+      setShowJourney(false);
+      setShowDestination(true);
+      setShowSafety(false);
+    }}
+  >
+    📍
+    <strong>Destination</strong>
+    <span>Explore places</span>
+  </div>
+</div>
               
             </section>
           </>
