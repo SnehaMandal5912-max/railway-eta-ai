@@ -373,8 +373,22 @@ button {
   font-size: 14px;
 }
 
-/* Mobile */
 
+/* More Options - Card Hover Effect */
+.more-options-card {
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.more-options-card:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.more-options-card:active {
+  transform: scale(0.98) !important;
+}
+/* Mobile */
 @media (max-width: 700px) {
   .header {
     padding: 18px 5%;
@@ -426,4 +440,5 @@ button {
   color: var(--muted);
   margin: 0;
 }
+
 }

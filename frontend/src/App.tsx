@@ -7,6 +7,7 @@ function App() {
   const [safetyRequested, setSafetyRequested] = useState(false);
   const [showDestination, setShowDestination] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   useEffect(() => {
   const interval = setInterval(() => {
     setEta((currentEta) => {
@@ -95,14 +96,18 @@ function App() {
         )}
             </div>
     </section>
+
   ) : showDestination ? (
     <section className="journey-page">
       <button
-        className="back-button"
-        onClick={() => setShowDestination(false)}
-      >
-      ← Back
-    </button>
+  className="back-button"
+  onClick={() => {
+    setShowDestination(false);
+    setShowMore(true);
+  }}
+>
+  ← Back
+</button>
 
     <p className="welcome">DESTINATION INTELLIGENCE</p>
 
@@ -144,6 +149,67 @@ function App() {
         <strong>Travel Information</strong>
         <span>Useful destination tips</span>
       </div>
+    </div>
+  </section>
+  ) : showMore ? (
+  <section className="journey-page">
+    <button
+      className="back-button"
+      onClick={() => setShowMore(false)}
+    >
+      ← Back
+    </button>
+
+    <p className="welcome">MORE</p>
+
+    <h2>More Options</h2>
+
+    <p className="subtitle">
+      Manage your Railway ETA AI experience.
+    </p>
+
+    <div className="quick-grid">
+      <div
+      className="destination-card more-options-card"
+        onClick={() => {
+          setShowMore(false);
+          setShowDestination(true);
+        }}
+      >
+        📍
+        <strong>Destination</strong>
+        <span>Explore places</span>
+      </div>
+
+        <div
+  onClick={() => {
+    alert("Language selection will be added soon.");
+  }}
+>
+  🌐
+  <strong>Language</strong>
+  <span>Choose language</span>
+</div>
+
+      <div
+  onClick={() => {
+    alert("Accessibility features will be added soon.");
+  }}
+>
+  ♿
+  <strong>Accessibility</strong>
+  <span>Easy access options</span>
+</div>
+
+      <div
+  onClick={() => {
+    alert("Settings features will be added soon.");
+  }}
+>
+  ⚙️
+  <strong>Settings</strong>
+  <span>App preferences</span>
+</div>
     </div>
   </section>
 ) : !showJourney ? (       <>
@@ -368,6 +434,7 @@ function App() {
       setShowJourney(false);
       setShowDestination(false);
       setShowSafety(false);
+      setShowMore(false);
     }}
   >
     ⌂ Home
@@ -378,6 +445,7 @@ function App() {
       setShowJourney(true);
       setShowDestination(false);
       setShowSafety(false);
+      setShowMore(false);
     }}
   >
     🚆 Journey
@@ -385,9 +453,10 @@ function App() {
 
   <button
     onClick={() => {
-      setShowJourney(false);
-      setShowDestination(false);
-      setShowSafety(true);
+      setShowJourney(false); 
+      setShowDestination(false); 
+      setShowSafety(true); 
+      setShowMore(false);
     }}
   >
     🛡 Safety
@@ -396,8 +465,9 @@ function App() {
   <button
     onClick={() => {
       setShowJourney(false);
-      setShowDestination(true);
+      setShowDestination(false);
       setShowSafety(false);
+    setShowMore(true);
     }}
   >
     ⋯ More
