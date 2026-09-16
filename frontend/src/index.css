@@ -374,19 +374,22 @@ button {
 }
 
 
-/* More Options - Card Hover Effect */
-.more-options-card {
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
+/* =========================================
+  CARD HOVER EFFECT
+   ========================================= */
+
+.quick-grid > div {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.more-options-card:hover {
-  transform: translateY(-5px) !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+.quick-grid > div:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
-.more-options-card:active {
-  transform: scale(0.98) !important;
+.quick-grid > div:active {
+  transform: translateY(-2px) scale(0.98);
 }
 /* Mobile */
 @media (max-width: 700px) {

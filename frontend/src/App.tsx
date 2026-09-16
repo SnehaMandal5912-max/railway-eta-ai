@@ -181,30 +181,34 @@ function App() {
         <span>Explore places</span>
       </div>
 
-        <div
-  onClick={() => {
-    alert("Language selection will be added soon.");
-  }}
+        <div 
+  className="destination-card more-options-card"
+  onClick={() => { 
+    alert("Language selection will be added soon."); 
+  }} 
 >
   🌐
   <strong>Language</strong>
   <span>Choose language</span>
 </div>
 
-      <div
-  onClick={() => {
-    alert("Accessibility features will be added soon.");
-  }}
+      <div 
+  className="destination-card more-options-card"
+  onClick={() => { 
+    alert("Accessibility features will be added soon."); 
+  }} 
 >
+
   ♿
   <strong>Accessibility</strong>
   <span>Easy access options</span>
 </div>
 
-      <div
-  onClick={() => {
-    alert("Settings features will be added soon.");
-  }}
+      <div 
+  className="destination-card more-options-card"
+  onClick={() => { 
+    alert("Settings features will be added soon."); 
+  }} 
 >
   ⚙️
   <strong>Settings</strong>
