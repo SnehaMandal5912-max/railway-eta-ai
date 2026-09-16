@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 function App() {
   const [trainNumber, setTrainNumber] = useState("");
   const [trainFound, setTrainFound] = useState(false);
@@ -7,6 +7,29 @@ function App() {
   const [safetyRequested, setSafetyRequested] = useState(false);
   const [showDestination, setShowDestination] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
+  useEffect(() => {
+  const interval = setInterval(() => {
+    setEta((currentEta) => {
+      const [time, period] = currentEta.split(" ");
+      let [hours, minutes] = time.split(":").map(Number);
+
+      minutes += 1;
+
+      if (minutes === 60) {
+        minutes = 0;
+        hours += 1;
+      }
+
+      if (hours === 13) {
+        hours = 1;
+      }
+
+      return `${hours}:${minutes.toString().padStart(2, "0")} ${period}`;
+    });
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, []);
   
 
   const findTrain = () => {
