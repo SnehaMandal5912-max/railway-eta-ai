@@ -12,6 +12,15 @@ from app.api.station_info import router as station_info_router
 from app.api.assistance import router as assistance_router
 from app.api.hazard_alert import router as hazard_router
 from app.api.destination_info import router as destination_router
+from app.database import Base, engine
+from app.models.train import Train
+from app.api.train_database import router as train_database_router
+from app.api.train_database_get import router as train_database_get_router
+from app.models.station import Station
+from app.api.station_database import router as station_database_router
+from app.api.station_database_get import router as station_database_get_router
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Railway ETA AI Backend",
@@ -31,6 +40,10 @@ app.include_router(station_info_router)
 app.include_router(assistance_router)
 app.include_router(hazard_router)
 app.include_router(destination_router)
+app.include_router(train_database_router)
+app.include_router(train_database_get_router)
+app.include_router(station_database_router)
+app.include_router(station_database_get_router)
 
 @app.get("/")
 def root():

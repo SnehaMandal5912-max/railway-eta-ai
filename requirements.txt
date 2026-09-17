@@ -5,3 +5,10 @@ joblib
 matplotlib
 seaborn
 jupyter
+sqlalchemy
+psycopg2-binary
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
