@@ -1,3 +1,4 @@
+import { saveRecentSearch, type RecentSearch } from "./utils/recentSearches";
 import { useEffect, useState } from "react";
 function App() {
   const [trainNumber, setTrainNumber] = useState("");
@@ -8,6 +9,14 @@ function App() {
   const [showDestination, setShowDestination] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  useEffect(() => {
+  const saved = JSON.parse(
+    localStorage.getItem("recentSearches") || "[]"
+  );
+
+  setRecentSearches(saved);
+}, []);
   useEffect(() => {
   const interval = setInterval(() => {
     setEta((currentEta) => {
@@ -36,6 +45,12 @@ function App() {
   const findTrain = () => {
     if (trainNumber.trim() === "12345") {
       setTrainFound(true);
+      saveRecentSearch({
+  trainNumber: "12345",
+  trainName: "Guwahati Express",
+  source: "New Jalpaiguri",
+  destination: "Guwahati",
+});
     } else {
       setTrainFound(false);
       alert("Demo train number: 12345");
@@ -278,22 +293,33 @@ function App() {
             <section className="recent-searches">
   <h3>Recent Searches</h3>
 
-  <div className="recent-search-card">
-    <div>
-      <strong>🚆 12345 — Guwahati Express</strong>
-      <span>New Jalpaiguri → Guwahati</span>
-    </div>
+  {recentSearches.length === 0 ? (
+    <p>No recent searches yet.</p>
+  ) : (
+    recentSearches.map((search) => (
+      <div className="recent-search-card" key={search.trainNumber}>
+        <div>
+          <strong>
+            🚆 {search.trainNumber} — {search.trainName}
+          </strong>
 
-    <button
-      onClick={() => {
-        setShowJourney(true);
-        setShowDestination(false);
-        setShowSafety(false);
-      }}
-    >
-      View Journey →
-    </button>
-  </div>
+          <span>
+            {search.source} → {search.destination}
+          </span>
+        </div>
+
+        <button
+          onClick={() => {
+            setShowJourney(true);
+            setShowDestination(false);
+            setShowSafety(false);
+          }}
+        >
+          View Journey →
+        </button>
+      </div>
+    ))
+  )}
 </section>
             <section className="quick-access">
               <h3>Quick Access</h3>
