@@ -275,6 +275,26 @@ function App() {
               )}
             </section>
 
+            <section className="recent-searches">
+  <h3>Recent Searches</h3>
+
+  <div className="recent-search-card">
+    <div>
+      <strong>🚆 12345 — Guwahati Express</strong>
+      <span>New Jalpaiguri → Guwahati</span>
+    </div>
+
+    <button
+      onClick={() => {
+        setShowJourney(true);
+        setShowDestination(false);
+        setShowSafety(false);
+      }}
+    >
+      View Journey →
+    </button>
+  </div>
+</section>
             <section className="quick-access">
               <h3>Quick Access</h3>
 
