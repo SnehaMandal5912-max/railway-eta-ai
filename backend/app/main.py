@@ -22,6 +22,9 @@ from app.api.station_database_get import router as station_database_get_router
 from app.models.route import Route
 from app.api.route_database import router as route_database_router
 from app.api.route_database_get import router as route_database_get_router
+from app.models.train_location import TrainLocation
+from app.api.train_location_database import router as train_location_router
+from app.api.train_location_database_get import router as train_location_get_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -49,6 +52,8 @@ app.include_router(station_database_router)
 app.include_router(station_database_get_router)
 app.include_router(route_database_router)
 app.include_router(route_database_get_router)
+app.include_router(train_location_router)
+app.include_router(train_location_get_router)
 
 @app.get("/")
 def root():
