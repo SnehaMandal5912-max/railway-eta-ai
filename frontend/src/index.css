@@ -391,7 +391,122 @@ button {
 .quick-grid > div:active {
   transform: translateY(-2px) scale(0.98);
 }
-/* Mobile */
+/* =========================================
+   DELAY INFORMATION
+   ========================================= */
+
+.delay-reason {
+  background: #fff8ed;
+  border: 1px solid #f3d6a4;
+  border-radius: 18px;
+  padding: 25px;
+  margin-top: 20px;
+}
+
+.delay-reason h3 {
+  color: #a85d00;
+  margin: 12px 0 8px;
+}
+
+.delay-reason p {
+  color: var(--muted);
+  margin: 0;
+}
+
+
+/* =========================================
+   HOME HERO SECTION
+   ========================================= */
+
+.home-hero {
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto 30px;
+  padding: 20px 20px 10px;
+}
+
+.home-hero .hero-badge {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 18px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #e8f2ff;
+  color: #0b4fa3;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.home-hero .welcome {
+  margin: 0 0 12px;
+}
+
+.home-hero h2 {
+  margin: 0 0 14px;
+  text-align: center;
+}
+
+.home-hero .subtitle {
+  max-width: 720px;
+  margin: 0 auto;
+}
+/* =========================================
+   RECENT SEARCHES
+   ========================================= */
+
+.recent-searches {
+  max-width: 850px;
+  margin: 45px auto;
+}
+
+.recent-searches h3 {
+  margin-bottom: 18px;
+}
+
+.recent-search-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 6px 20px rgba(31, 72, 112, 0.06);
+}
+
+.recent-search-card strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 7px;
+}
+
+.recent-search-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.recent-search-card button {
+  flex-shrink: 0;
+  border: none;
+  background: var(--blue);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.recent-search-card button:hover {
+  background: var(--dark-blue);
+}
+
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
 @media (max-width: 700px) {
   .header {
     padding: 18px 5%;
@@ -426,22 +541,15 @@ button {
     gap: 20px;
     justify-content: space-around;
   }
-  .delay-reason {
-  background: #fff8ed;
-  border: 1px solid #f3d6a4;
-  border-radius: 18px;
-  padding: 25px;
-  margin-top: 20px;
-}
 
-.delay-reason h3 {
-  color: #a85d00;
-  margin: 12px 0 8px;
-}
+  .recent-search-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.delay-reason p {
-  color: var(--muted);
-  margin: 0;
+  .recent-search-card button {
+    width: 100%;
+  }
 }
 
 }
