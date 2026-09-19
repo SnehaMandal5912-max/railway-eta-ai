@@ -25,6 +25,9 @@ from app.api.route_database_get import router as route_database_get_router
 from app.models.train_location import TrainLocation
 from app.api.train_location_database import router as train_location_router
 from app.api.train_location_database_get import router as train_location_get_router
+from app.models.historical_delay import HistoricalDelay
+from app.api.historical_delay_database import router as historical_delay_router
+from app.api.historical_delay_database_get import router as historical_delay_get_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -54,6 +57,8 @@ app.include_router(route_database_router)
 app.include_router(route_database_get_router)
 app.include_router(train_location_router)
 app.include_router(train_location_get_router)
+app.include_router(historical_delay_router)
+app.include_router(historical_delay_get_router)
 
 @app.get("/")
 def root():
