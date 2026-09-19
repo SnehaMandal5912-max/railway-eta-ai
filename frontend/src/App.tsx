@@ -4,12 +4,15 @@ function App() {
   const [trainNumber, setTrainNumber] = useState("");
   const [trainFound, setTrainFound] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
+  const [showTrainDetails, setShowTrainDetails] = useState(false);
   const [eta, setEta] = useState("10:47 PM");
   const [safetyRequested, setSafetyRequested] = useState(false);
   const [showDestination, setShowDestination] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const [searchError, setSearchError] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
   useEffect(() => {
   const saved = JSON.parse(
     localStorage.getItem("recentSearches") || "[]"
@@ -43,19 +46,32 @@ function App() {
   
 
   const findTrain = () => {
-    if (trainNumber.trim() === "12345") {
-      setTrainFound(true);
-      saveRecentSearch({
-  trainNumber: "12345",
-  trainName: "Guwahati Express",
-  source: "New Jalpaiguri",
-  destination: "Guwahati",
-});
-    } else {
-      setTrainFound(false);
-      alert("Demo train number: 12345");
-    }
-  };
+  const search = trainNumber.trim().toLowerCase();
+
+  if (search === "") {
+  setTrainFound(false);
+  setSearchError(false);
+  return;
+}
+  if (
+    search === "12345" ||
+    search === "guwahati express"
+  ) {
+    setTrainFound(true);
+    setSearchError(false);
+
+    saveRecentSearch({
+      trainNumber: "12345",
+      trainName: "Guwahati Express",
+      source: "New Jalpaiguri",
+      destination: "Guwahati",
+    });
+  } else {
+    setTrainFound(false);
+    setSearchError(true);
+    
+  }
+};
 
   return (
     <div className="app">
@@ -231,15 +247,87 @@ function App() {
 </div>
     </div>
   </section>
+  ) : showTrainDetails ? (
+  <section className="journey-page">
+    <button
+      className="back-button"
+      onClick={() => setShowTrainDetails(false)}
+    >
+      ← Back
+    </button>
+
+    <p className="welcome">TRAIN DETAILS</p>
+
+    <h2>🚆 Guwahati Express</h2>
+
+    <p className="subtitle">
+      Train 12345 • New Jalpaiguri → Guwahati
+    </p>
+
+    <div className="status-card">
+      <span className="status-label">TRAIN INFORMATION</span>
+
+      <p>
+        <strong>Train Number:</strong> 12345
+      </p>
+
+      <p>
+        <strong>Train Name:</strong> Guwahati Express
+      </p>
+
+      <p>
+        <strong>Source:</strong> New Jalpaiguri
+      </p>
+
+      <p>
+        <strong>Destination:</strong> Guwahati
+      </p>
+
+      <p>
+        <strong>Status:</strong>{" "}
+        <span className="running">Running</span>
+      </p>
+    </div>
+
+    <div className="status-card">
+      <span className="status-label">CURRENT JOURNEY STATUS</span>
+
+      <p>
+        <strong>Current Delay:</strong> 17 minutes
+      </p>
+
+      <p>
+        <strong>Expected ETA:</strong> {eta}
+      </p>
+
+      <p>
+        <strong>Next Station:</strong> New Bongaigaon
+      </p>
+    </div>
+
+    <button
+      className="journey-button"
+      onClick={() => {
+        setShowTrainDetails(false);
+        setShowJourney(true);
+      }}
+    >
+      View Live Journey →
+    </button>
+  </section> 
 ) : !showJourney ? (       <>
-            <p className="welcome">WELCOME ABOARD</p>
+<section className="home-hero">
+  <div className="hero-badge">🚆 SMART RAILWAY JOURNEY</div>
 
-            <h2>Where is your train going?</h2>
+  <p className="welcome">WELCOME ABOARD</p>
 
-            <p className="subtitle">
-              Get dynamic ETA, live journey updates and smart railway
-              assistance.
-            </p>
+  <h2>Where is your train going?</h2>
+
+  <p className="subtitle">
+    Get dynamic ETA, live journey updates and smart railway
+    assistance — all in one place.
+  </p>
+</section>
 
             <section className="search-card">
               <h3>Search your train</h3>
@@ -248,7 +336,17 @@ function App() {
                 <input
                   type="text"
                   value={trainNumber}
-                  onChange={(e) => setTrainNumber(e.target.value)}
+                  onChange={(e) => {
+  const value = e.target.value;
+
+  setTrainNumber(value);
+  setSearchActive(value.trim().length > 0);
+
+  if (value.trim() === "") {
+    setTrainFound(false);
+    setSearchError(false);
+  }
+}}
                   placeholder="Enter train number or name"
                 />
 
@@ -257,11 +355,11 @@ function App() {
 
               {trainFound && (
                 <div className="train-card">
-                  <h3>Train Found</h3>
+                <h3>🚆 Guwahati Express</h3>
 
-                  <p>
-                    <strong>Train:</strong> 12345
-                  </p>
+<p>
+  <strong>Train Number:</strong> 12345
+</p>
 
                   <p>
                     <strong>Route:</strong> New Jalpaiguri → Guwahati
@@ -281,13 +379,35 @@ function App() {
                   </p>
 
                   <button
-                    className="journey-button"
-                    onClick={() => setShowJourney(true)}
-                  >
-                    View Live Journey →
-                  </button>
+  className="journey-button"
+  onClick={() => {
+    setShowTrainDetails(true);
+    setShowJourney(false);
+    setShowDestination(false);
+    setShowSafety(false);
+    setShowMore(false);
+  }}
+>
+  View Train Details →
+</button>
                 </div>
               )}
+              {searchError && (
+  <div className="search-error">
+    <div className="search-error-icon">🔍</div>
+
+    <h3>Train Not Found</h3>
+
+    <p>
+      We couldn't find a train matching your search.
+    </p>
+
+    <small>
+      Try entering <strong>12345</strong> or{" "}
+      <strong>Guwahati Express</strong>.
+    </small>
+  </div>
+)}
             </section>
 
             <section className="recent-searches">

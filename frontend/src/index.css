@@ -551,5 +551,35 @@ button {
     width: 100%;
   }
 }
+.search-error {
+  margin-top: 18px;
+  padding: 18px 20px;
+  background: #fff4f4;
+  border: 1px solid #f0caca;
+  border-radius: 16px;
+}
+
+.search-error-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.search-error h3 {
+  margin: 0 0 6px;
+  color: #b42323;
+}
+
+.search-error p {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.search-error small {
+  color: var(--muted);
+}
+
+.search-error strong {
+  color: #b42323;
+}
 
 }
