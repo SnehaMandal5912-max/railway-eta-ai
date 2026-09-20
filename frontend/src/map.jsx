@@ -17,26 +17,21 @@ import trainData from "./trainData";
 ===================================================== */
 
 const TICK_SECONDS = 0.5;
-
-/*
-  Higher value = faster demo.
-  90 gives a useful SIH demonstration speed.
-*/
-const SIMULATION_TIME_SCALE = 90;
+const SIMULATION_TIME_SCALE = 45;
 
 /* =====================================================
-   REAL DEMO ROUTE
-   Kolkata -> Asansol -> Dhanbad -> Gomoh -> Koderma
-   -> New Delhi
+   ROUTE
+   Kolkata -> Asansol -> Dhanbad -> Gomoh
+   -> Koderma -> New Delhi
 ===================================================== */
 
 const ROUTE = [
-  [22.5726, 88.3639], // Kolkata
-  [23.6739, 87.1480], // Asansol
-  [23.7957, 86.4304], // Dhanbad
-  [23.8730, 86.1510], // Gomoh
-  [24.4674, 85.5930], // Koderma
-  [28.6139, 77.2090], // New Delhi
+  [22.5726, 88.3639],
+  [23.6739, 87.1480],
+  [23.7957, 86.4304],
+  [23.8730, 86.1510],
+  [24.4674, 85.5930],
+  [28.6139, 77.2090],
 ];
 
 /* =====================================================
@@ -90,9 +85,6 @@ const STATIONS = [
 
 /* =====================================================
    DEFAULT RISK ZONES
-
-   Prototype operational zones because backend does not
-   currently provide /risk-zones.
 ===================================================== */
 
 const DEFAULT_RISKS = [
@@ -129,7 +121,26 @@ const DEFAULT_RISKS = [
 ];
 
 /* =====================================================
-   GEO FUNCTIONS
+   VALID COORDINATE
+===================================================== */
+
+function isValidCoordinate(latitude, longitude) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat === 0 && lng === 0)
+  );
+}
+
+/* =====================================================
+   GEO HELPERS
 ===================================================== */
 
 function toRadians(value) {
@@ -159,15 +170,115 @@ function haversineDistance(pointA, pointB) {
 }
 
 function interpolatePoint(pointA, pointB, ratio) {
-  const safeRatio = Math.max(0, Math.min(1, ratio));
+  const safeRatio = Math.max(
+    0,
+    Math.min(1, ratio)
+  );
 
   return [
     pointA[0] +
-      (pointB[0] - pointA[0]) * safeRatio,
+      (pointB[0] - pointA[0]) *
+        safeRatio,
 
     pointA[1] +
-      (pointB[1] - pointA[1]) * safeRatio,
+      (pointB[1] - pointA[1]) *
+        safeRatio,
   ];
+}
+
+/* =====================================================
+   FIND NEAREST ROUTE POSITION
+===================================================== */
+
+function getNearestRoutePosition(point) {
+  let best = {
+    distanceToRoute: Infinity,
+    routeDistance: 0,
+    position: ROUTE[0],
+  };
+
+  let accumulatedDistance = 0;
+
+  for (
+    let index = 1;
+    index < ROUTE.length;
+    index += 1
+  ) {
+    const start = ROUTE[index - 1];
+    const end = ROUTE[index];
+
+    const segmentLength =
+      haversineDistance(
+        start,
+        end
+      );
+
+    const x = point[1];
+    const y = point[0];
+
+    const x1 = start[1];
+    const y1 = start[0];
+
+    const x2 = end[1];
+    const y2 = end[0];
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+
+    const denominator =
+      dx * dx + dy * dy;
+
+    let ratio = 0;
+
+    if (denominator > 0) {
+      ratio =
+        ((x - x1) * dx +
+          (y - y1) * dy) /
+        denominator;
+    }
+
+    ratio = Math.max(
+      0,
+      Math.min(1, ratio)
+    );
+
+    const projected =
+      interpolatePoint(
+        start,
+        end,
+        ratio
+      );
+
+    const distanceToProjected =
+      haversineDistance(
+        point,
+        projected
+      );
+
+    const distanceAlongSegment =
+      segmentLength * ratio;
+
+    if (
+      distanceToProjected <
+      best.distanceToRoute
+    ) {
+      best = {
+        distanceToRoute:
+          distanceToProjected,
+
+        routeDistance:
+          accumulatedDistance +
+          distanceAlongSegment,
+
+        position: projected,
+      };
+    }
+
+    accumulatedDistance +=
+      segmentLength;
+  }
+
+  return best;
 }
 
 /* =====================================================
@@ -194,7 +305,10 @@ function getRiskSpeedLimit(severity) {
    STATION ICON
 ===================================================== */
 
-function createStationIcon(type, isCurrent) {
+function createStationIcon(
+  type,
+  isCurrent
+) {
   let background = "#2563eb";
 
   if (type === "origin") {
@@ -210,7 +324,8 @@ function createStationIcon(type, isCurrent) {
   }
 
   return L.divIcon({
-    className: "station-marker-wrapper",
+    className:
+      "station-marker-wrapper",
 
     html: `
       <div
@@ -235,7 +350,8 @@ function createStationIcon(type, isCurrent) {
 ===================================================== */
 
 const trainIcon = L.divIcon({
-  className: "train-marker-wrapper",
+  className:
+    "train-marker-wrapper",
 
   html: `
     <div class="train-live-marker">
@@ -273,9 +389,13 @@ function MapResizeHandler() {
 function RailwayMap({
   train = trainData,
   routeData = null,
+
   backendCurrentStation = null,
   backendNextStation = null,
   backendDestination = null,
+
+  databaseLocation = null,
+
   riskZones = DEFAULT_RISKS,
 
   onProgressUpdate,
@@ -289,10 +409,11 @@ function RailwayMap({
   const [trainPosition, setTrainPosition] =
     useState(ROUTE[0]);
 
-  const [speed, setSpeed] = useState(0);
+  const [speed, setSpeed] =
+    useState(0);
 
   const [movement, setMovement] =
-    useState("HALTED AT STATION");
+    useState("STARTING");
 
   const [activeRisks, setActiveRisks] =
     useState([]);
@@ -301,16 +422,82 @@ function RailwayMap({
     useState(0);
 
   /* =====================================================
+     DATABASE TELEMETRY
+  ===================================================== */
+
+  const dbLatValue =
+    databaseLocation?.latitude ??
+    databaseLocation?.lat ??
+    null;
+
+  const dbLngValue =
+    databaseLocation?.longitude ??
+    databaseLocation?.lng ??
+    null;
+
+  const hasDatabaseLocation =
+    isValidCoordinate(
+      dbLatValue,
+      dbLngValue
+    );
+
+  const dbLat = hasDatabaseLocation
+    ? Number(dbLatValue)
+    : null;
+
+  const dbLng = hasDatabaseLocation
+    ? Number(dbLngValue)
+    : null;
+
+  const databasePosition =
+    hasDatabaseLocation
+      ? [dbLat, dbLng]
+      : null;
+
+  const rawDatabaseSpeed =
+    databaseLocation?.speed ?? null;
+
+  const databaseSpeed =
+    hasDatabaseLocation &&
+    rawDatabaseSpeed !== null &&
+    rawDatabaseSpeed !== undefined &&
+    Number.isFinite(
+      Number(rawDatabaseSpeed)
+    )
+      ? Number(rawDatabaseSpeed)
+      : null;
+
+  const databaseStation =
+    hasDatabaseLocation
+      ? databaseLocation?.stationCode ||
+        databaseLocation?.station_code ||
+        null
+      : null;
+
+  const databaseRecordedAt =
+    hasDatabaseLocation
+      ? databaseLocation?.recordedAt ||
+        databaseLocation?.recorded_at ||
+        null
+      : null;
+
+  const databaseRecordKey =
+    hasDatabaseLocation
+      ? databaseLocation?.locationId ||
+        databaseLocation?.location_id ||
+        databaseRecordedAt ||
+        `${dbLat}-${dbLng}`
+      : "NO_DATABASE_LOCATION";
+
+  /* =====================================================
      CALLBACK REFERENCES
   ===================================================== */
 
   const callbacksRef = useRef({
     onProgressUpdate,
     onLocationUpdate,
-
     onStationUpdate:
       onStationUpdate || onStationInfo,
-
     onRiskUpdate:
       onRiskUpdate || onRiskInfo,
   });
@@ -319,10 +506,8 @@ function RailwayMap({
     callbacksRef.current = {
       onProgressUpdate,
       onLocationUpdate,
-
       onStationUpdate:
         onStationUpdate || onStationInfo,
-
       onRiskUpdate:
         onRiskUpdate || onRiskInfo,
     };
@@ -337,25 +522,22 @@ function RailwayMap({
 
   /* =====================================================
      SIMULATION STATE
-
-     IMPORTANT:
-     Simulation ALWAYS starts from Kolkata.
-
-     Backend current station such as Asansol is NOT used
-     to overwrite the initial demo position.
   ===================================================== */
 
   const simulation = useRef({
     distance: 0,
-
     phase: "HALT",
-
     dwellRemaining:
       STATIONS[0].dwellSeconds,
 
     destinationHold: false,
 
     lastArrivedStationIndex: 0,
+
+    lastDatabaseRecordKey:
+      "NO_DATABASE_LOCATION",
+
+    databaseAnchorDistance: null,
   });
 
   const speedRef = useRef(0);
@@ -393,248 +575,254 @@ function RailwayMap({
      STATION DISTANCES
   ===================================================== */
 
-  const stationDistances = useMemo(() => {
-    return STATIONS.map((station) => ({
-      ...station,
+  const stationDistances =
+    useMemo(() => {
+      return STATIONS.map(
+        (station) => ({
+          ...station,
 
-      distance:
-        routeDistances[
-          station.routeIndex
-        ],
-    }));
-  }, [routeDistances]);
+          distance:
+            routeDistances[
+              station.routeIndex
+            ],
+        })
+      );
+    }, [routeDistances]);
 
   /* =====================================================
      POSITION FROM DISTANCE
   ===================================================== */
 
-  const getPositionFromDistance = (distance) => {
-    const safeDistance = Math.max(
-      0,
-      Math.min(
-        distance,
-        totalRouteDistance
-      )
-    );
-
-    for (
-      let index = 1;
-      index < ROUTE.length;
-      index += 1
-    ) {
-      if (
-        safeDistance <=
-        routeDistances[index]
-      ) {
-        const segmentStart =
-          routeDistances[index - 1];
-
-        const segmentEnd =
-          routeDistances[index];
-
-        const segmentLength =
-          segmentEnd - segmentStart;
-
-        const ratio =
-          segmentLength === 0
-            ? 0
-            : (safeDistance -
-                segmentStart) /
-              segmentLength;
-
-        return interpolatePoint(
-          ROUTE[index - 1],
-          ROUTE[index],
-          ratio
+  const getPositionFromDistance =
+    (distance) => {
+      const safeDistance =
+        Math.max(
+          0,
+          Math.min(
+            distance,
+            totalRouteDistance
+          )
         );
-      }
-    }
 
-    return ROUTE[
-      ROUTE.length - 1
-    ];
-  };
-
-  /* =====================================================
-     FIND NEXT STATION
-  ===================================================== */
-
-  const getNextStationAfterIndex = (
-    stationIndex
-  ) => {
-    return (
-      stationDistances[
-        stationIndex + 1
-      ] || null
-    );
-  };
-
-  /* =====================================================
-     CURRENT STATION INFORMATION
-  ===================================================== */
-
-  const getCurrentStationInfo = (
-    distance,
-    phase
-  ) => {
-    const tolerance = 500;
-
-    /* Destination */
-    if (
-      distance >=
-      totalRouteDistance - tolerance
-    ) {
-      return {
-        currentStation:
-          stationDistances[
-            stationDistances.length - 1
-          ],
-
-        nextStation: null,
-      };
-    }
-
-    /* Station halt */
-    if (phase === "HALT") {
       for (
-        let index = 0;
+        let index = 1;
+        index < ROUTE.length;
+        index += 1
+      ) {
+        if (
+          safeDistance <=
+          routeDistances[index]
+        ) {
+          const segmentStart =
+            routeDistances[
+              index - 1
+            ];
+
+          const segmentEnd =
+            routeDistances[index];
+
+          const segmentLength =
+            segmentEnd -
+            segmentStart;
+
+          const ratio =
+            segmentLength === 0
+              ? 0
+              : (safeDistance -
+                  segmentStart) /
+                segmentLength;
+
+          return interpolatePoint(
+            ROUTE[index - 1],
+            ROUTE[index],
+            ratio
+          );
+        }
+      }
+
+      return ROUTE[
+        ROUTE.length - 1
+      ];
+    };
+
+  /* =====================================================
+     NEXT STATION
+  ===================================================== */
+
+  const getNextStationAfterIndex =
+    (stationIndex) => {
+      return (
+        stationDistances[
+          stationIndex + 1
+        ] || null
+      );
+    };
+
+  /* =====================================================
+     CURRENT STATION
+  ===================================================== */
+
+  const getCurrentStationInfo =
+    (
+      distance,
+      phase
+    ) => {
+      const tolerance = 500;
+
+      if (
+        distance >=
+        totalRouteDistance -
+          tolerance
+      ) {
+        return {
+          currentStation:
+            stationDistances[
+              stationDistances.length -
+                1
+            ],
+
+          nextStation: null,
+        };
+      }
+
+      if (phase === "HALT") {
+        for (
+          let index = 0;
+          index <
+          stationDistances.length;
+          index += 1
+        ) {
+          const station =
+            stationDistances[index];
+
+          if (
+            Math.abs(
+              distance -
+                station.distance
+            ) <= tolerance
+          ) {
+            return {
+              currentStation:
+                station,
+
+              nextStation:
+                getNextStationAfterIndex(
+                  index
+                ),
+            };
+          }
+        }
+      }
+
+      const lastArrivedIndex =
+        simulation.current
+          .lastArrivedStationIndex;
+
+      const lastArrivedStation =
+        stationDistances[
+          lastArrivedIndex
+        ];
+
+      let nextStation = null;
+
+      for (
+        let index =
+          lastArrivedIndex + 1;
         index <
         stationDistances.length;
         index += 1
       ) {
-        const station =
-          stationDistances[index];
-
         if (
-          Math.abs(
-            distance -
-              station.distance
-          ) <= tolerance
+          stationDistances[index]
+            .distance >
+          distance
         ) {
-          return {
-            currentStation:
-              station,
+          nextStation =
+            stationDistances[index];
 
-            nextStation:
-              getNextStationAfterIndex(
-                index
-              ),
-          };
+          break;
         }
       }
-    }
 
-    /*
-      During movement, use the last arrived station
-      as Current Station.
-    */
-    const lastArrivedIndex =
-      simulation.current
-        .lastArrivedStationIndex;
+      return {
+        currentStation:
+          lastArrivedStation ||
+          null,
 
-    const lastArrivedStation =
-      stationDistances[
-        lastArrivedIndex
-      ];
-
-    let nextStation = null;
-
-    for (
-      let index =
-        lastArrivedIndex + 1;
-      index <
-      stationDistances.length;
-      index += 1
-    ) {
-      if (
-        stationDistances[index]
-          .distance >
-        distance
-      ) {
-        nextStation =
-          stationDistances[index];
-
-        break;
-      }
-    }
-
-    return {
-      currentStation:
-        lastArrivedStation || null,
-
-      nextStation,
+        nextStation,
+      };
     };
-  };
 
   /* =====================================================
-     PROGRESS REPORT
+     REPORT PROGRESS
   ===================================================== */
 
-  const reportProgress = (
-    distance
-  ) => {
-    const progress = Math.min(
-      100,
-      Math.max(
-        0,
-        (distance /
-          totalRouteDistance) *
-          100
-      )
-    );
-
-    setCurrentProgress(progress);
-
-    callbacksRef.current
-      .onProgressUpdate?.(
-        progress
-      );
-  };
-
-  /* =====================================================
-     ACTIVE RISK DETECTION
-  ===================================================== */
-
-  const calculateActiveRisks = (
-    position
-  ) => {
-    const safeRisks =
-      Array.isArray(riskZones)
-        ? riskZones
-        : DEFAULT_RISKS;
-
-    return safeRisks.filter(
-      (risk) => {
-        if (
-          typeof risk?.lat !==
-            "number" ||
-          typeof risk?.lng !==
-            "number"
-        ) {
-          return false;
-        }
-
-        const distance =
-          haversineDistance(
-            position,
-            [
-              risk.lat,
-              risk.lng,
-            ]
-          );
-
-        return (
-          distance <=
-          Number(
-            risk.radius || 0
+  const reportProgress =
+    (distance) => {
+      const progress =
+        Math.min(
+          100,
+          Math.max(
+            0,
+            (distance /
+              totalRouteDistance) *
+              100
           )
         );
-      }
-    );
-  };
+
+      setCurrentProgress(
+        progress
+      );
+
+      callbacksRef.current
+        .onProgressUpdate?.(
+          progress
+        );
+    };
 
   /* =====================================================
-     LIVE SIMULATION
+     ACTIVE RISKS
+  ===================================================== */
+
+  const calculateActiveRisks =
+    (position) => {
+      const safeRisks =
+        Array.isArray(riskZones)
+          ? riskZones
+          : DEFAULT_RISKS;
+
+      return safeRisks.filter(
+        (risk) => {
+          if (
+            !isValidCoordinate(
+              risk?.lat,
+              risk?.lng
+            )
+          ) {
+            return false;
+          }
+
+          const distance =
+            haversineDistance(
+              position,
+              [
+                Number(risk.lat),
+                Number(risk.lng),
+              ]
+            );
+
+          return (
+            distance <=
+            Number(
+              risk.radius || 0
+            )
+          );
+        }
+      );
+    };
+
+  /* =====================================================
+     HYBRID LIVE ENGINE
   ===================================================== */
 
   useEffect(() => {
@@ -647,7 +835,163 @@ function RailwayMap({
           callbacksRef.current;
 
         /* =================================================
-           DESTINATION HOLD
+           NEW DATABASE ANCHOR
+        ================================================= */
+
+        if (
+          hasDatabaseLocation &&
+          state.lastDatabaseRecordKey !==
+            databaseRecordKey
+        ) {
+          const dbPoint = [
+            dbLat,
+            dbLng,
+          ];
+
+          const nearest =
+            getNearestRoutePosition(
+              dbPoint
+            );
+
+          const maximumAllowedDistanceFromRoute =
+            50000;
+
+          if (
+            nearest.distanceToRoute >
+            maximumAllowedDistanceFromRoute
+          ) {
+            state.lastDatabaseRecordKey =
+              databaseRecordKey;
+
+            return;
+          }
+
+          /*
+            IMPORTANT:
+
+            Database becomes the anchor.
+            Simulation distance is moved to the
+            nearest position on the monitored route.
+          */
+          state.distance =
+            nearest.routeDistance;
+
+          state.databaseAnchorDistance =
+            nearest.routeDistance;
+
+          state.destinationHold =
+            false;
+
+          let lastStationIndex = 0;
+
+          for (
+            let index = 0;
+            index <
+            stationDistances.length;
+            index += 1
+          ) {
+            if (
+              stationDistances[index]
+                .distance <=
+              nearest.routeDistance +
+                500
+            ) {
+              lastStationIndex =
+                index;
+            }
+          }
+
+          state.lastArrivedStationIndex =
+            lastStationIndex;
+
+          const currentStation =
+            stationDistances[
+              lastStationIndex
+            ];
+
+          const nearStation =
+            currentStation &&
+            Math.abs(
+              nearest.routeDistance -
+                currentStation.distance
+            ) <= 500;
+
+          state.phase =
+            nearStation
+              ? "HALT"
+              : "CRUISE";
+
+          state.dwellRemaining =
+            nearStation
+              ? currentStation.dwellSeconds
+              : 0;
+
+          if (
+            databaseSpeed !== null
+          ) {
+            speedRef.current =
+              Math.max(
+                0,
+                databaseSpeed
+              );
+
+            setSpeed(
+              Math.round(
+                databaseSpeed
+              )
+            );
+          } else {
+            /*
+              No speed in DB:
+              use normal simulation speed
+              instead of showing misleading 0.
+            */
+            speedRef.current =
+              nearStation
+                ? 0
+                : 60;
+
+            setSpeed(
+              nearStation
+                ? 0
+                : 60
+            );
+          }
+
+          /*
+            Show database coordinate immediately
+            for this tick.
+          */
+          setTrainPosition(
+            dbPoint
+          );
+
+          reportProgress(
+            nearest.routeDistance
+          );
+
+          state.lastDatabaseRecordKey =
+            databaseRecordKey;
+
+          callbacks
+            .onLocationUpdate?.({
+              lat: dbLat,
+              lng: dbLng,
+
+              type:
+                nearStation
+                  ? "Database Station Position"
+                  : "Database Anchored",
+
+              description:
+                nearStation
+                  ? `Train position anchored to database telemetry near ${currentStation.name}.`
+                  : "Train position anchored to the latest database telemetry. Simulation will continue from this position.",
+            });
+        }
+
+        /* =================================================
+           DESTINATION
         ================================================= */
 
         if (
@@ -670,7 +1014,9 @@ function RailwayMap({
             destinationPosition
           );
 
-          setCurrentProgress(100);
+          setCurrentProgress(
+            100
+          );
 
           callbacks
             .onProgressUpdate?.(
@@ -685,7 +1031,8 @@ function RailwayMap({
               lng:
                 destinationPosition[1],
 
-              type: "Destination",
+              type:
+                "Destination",
 
               description:
                 `Train has reached ${
@@ -709,10 +1056,8 @@ function RailwayMap({
           callbacks
             .onRiskUpdate?.({
               activeRisks: [],
-
               highestSeverity:
                 "Normal",
-
               totalActive: 0,
             });
 
@@ -720,7 +1065,7 @@ function RailwayMap({
         }
 
         /* =================================================
-           CURRENT POSITION
+           CURRENT SIMULATION POSITION
         ================================================= */
 
         const currentPosition =
@@ -737,7 +1082,9 @@ function RailwayMap({
             currentPosition
           );
 
-        setActiveRisks(risks);
+        setActiveRisks(
+          risks
+        );
 
         const highestRisk =
           risks.reduce(
@@ -760,7 +1107,8 @@ function RailwayMap({
 
         callbacks
           .onRiskUpdate?.({
-            activeRisks: risks,
+            activeRisks:
+              risks,
 
             highestSeverity:
               highestRisk?.severity ||
@@ -804,8 +1152,17 @@ function RailwayMap({
                 station.routeIndex
               ];
 
+            /*
+              Even with database mode,
+              simulation is now allowed to
+              continue visually after the anchor.
+            */
             setTrainPosition(
-              stationPosition
+              hasDatabaseLocation
+                ? getPositionFromDistance(
+                    state.distance
+                  )
+                : stationPosition
             );
 
             const stationIndex =
@@ -831,18 +1188,28 @@ function RailwayMap({
                   "HALTED AT STATION",
               });
 
+            const displayedPosition =
+              getPositionFromDistance(
+                state.distance
+              );
+
             callbacks
               .onLocationUpdate?.({
                 lat:
-                  stationPosition[0],
+                  displayedPosition[0],
 
                 lng:
-                  stationPosition[1],
+                  displayedPosition[1],
 
-                type: "At Station",
+                type:
+                  hasDatabaseLocation
+                    ? "Database Anchored"
+                    : "At Station",
 
                 description:
-                  `Train is currently halted at ${station.name}.`,
+                  hasDatabaseLocation
+                    ? `Simulation is continuing from the latest database anchor near ${station.name}.`
+                    : `Train is currently halted at ${station.name}.`,
               });
           }
 
@@ -856,7 +1223,8 @@ function RailwayMap({
           ) {
             if (
               state.lastArrivedStationIndex >=
-              stationDistances.length - 1
+              stationDistances.length -
+                1
             ) {
               state.destinationHold =
                 true;
@@ -893,7 +1261,7 @@ function RailwayMap({
           );
 
         /* =================================================
-           FIND NEXT STATION
+           NEXT STATION
         ================================================= */
 
         let approachingStation =
@@ -920,8 +1288,7 @@ function RailwayMap({
             state.distance;
 
           if (
-            distanceToStation >
-              0 &&
+            distanceToStation > 0 &&
             distanceToStation <
               distanceToApproaching
           ) {
@@ -934,7 +1301,7 @@ function RailwayMap({
         }
 
         /* =================================================
-           APPROACHING STATION
+           APPROACHING
         ================================================= */
 
         if (
@@ -945,10 +1312,6 @@ function RailwayMap({
           state.phase =
             "DECELERATE";
         }
-
-        /* =================================================
-           DESTINATION APPROACH
-        ================================================= */
 
         const distanceToDestination =
           totalRouteDistance -
@@ -992,27 +1355,18 @@ function RailwayMap({
           state.phase ===
           "DECELERATE"
         ) {
-          /*
-            Smooth deceleration.
-          */
           currentSpeed =
             Math.max(
               10,
-              currentSpeed -
-                4
+              currentSpeed - 4
             );
         } else {
-          /*
-            Smooth acceleration toward
-            target speed.
-          */
           currentSpeed =
             Math.min(
               targetSpeed,
               Math.max(
                 20,
-                currentSpeed +
-                  3
+                currentSpeed + 3
               )
             );
         }
@@ -1021,16 +1375,17 @@ function RailwayMap({
           currentSpeed;
 
         setSpeed(
-          currentSpeed
+          Math.round(
+            currentSpeed
+          )
         );
 
         /* =================================================
-           MOVE TRAIN
+           MOVE SIMULATION
         ================================================= */
 
         const speedMetersPerSecond =
-          (currentSpeed *
-            1000) /
+          (currentSpeed * 1000) /
           3600;
 
         const distanceStep =
@@ -1045,25 +1400,11 @@ function RailwayMap({
           distanceStep;
 
         /* =================================================
-           STATION ARRIVAL DETECTION
+           STATION ARRIVAL
+        ================================================= */
 
-           IMPORTANT FIX:
-
-           Instead of checking only whether the train
-           happens to be within 90m of a station, we check
-           whether the train crossed the station between
-           previousDistance and new distance.
-
-           This prevents Asansol/Dhanbad/Gomoh/Koderma
-           from being skipped because of the fast demo
-           simulation.
-        ===================================================== */
-
-        let arrivedStation =
-          null;
-
-        let arrivedStationIndex =
-          -1;
+        let arrivedStation = null;
+        let arrivedStationIndex = -1;
 
         for (
           let index =
@@ -1108,7 +1449,7 @@ function RailwayMap({
         }
 
         /* =================================================
-           STATION ARRIVED
+           ARRIVED
         ================================================= */
 
         if (
@@ -1169,10 +1510,15 @@ function RailwayMap({
               lng:
                 stationPosition[1],
 
-              type: "At Station",
+              type:
+                hasDatabaseLocation
+                  ? "Database Anchored"
+                  : "At Station",
 
               description:
-                `Train has arrived at ${arrivedStation.name}.`,
+                hasDatabaseLocation
+                  ? `Simulation has reached ${arrivedStation.name} after continuing from database telemetry.`
+                  : `Train has arrived at ${arrivedStation.name}.`,
             });
 
           reportProgress(
@@ -1191,7 +1537,7 @@ function RailwayMap({
         }
 
         /* =================================================
-           ROUTE END SAFETY
+           ROUTE END
         ================================================= */
 
         if (
@@ -1206,16 +1552,16 @@ function RailwayMap({
 
           speedRef.current = 0;
 
-          setTrainPosition(
-            ROUTE[
-              ROUTE.length - 1
-            ]
-          );
-
           setSpeed(0);
 
           setMovement(
             "DESTINATION"
+          );
+
+          setTrainPosition(
+            ROUTE[
+              ROUTE.length - 1
+            ]
           );
 
           reportProgress(
@@ -1226,7 +1572,7 @@ function RailwayMap({
         }
 
         /* =================================================
-           IN-TRANSIT STATUS
+           IN TRANSIT
         ================================================= */
 
         const newPosition =
@@ -1234,6 +1580,15 @@ function RailwayMap({
             state.distance
           );
 
+        /*
+          IMPORTANT HYBRID FIX:
+
+          Database is an ANCHOR, not a permanent
+          display lock.
+
+          After anchoring, simulation continues
+          moving the train from that position.
+        */
         setTrainPosition(
           newPosition
         );
@@ -1265,13 +1620,7 @@ function RailwayMap({
         );
 
         /* =================================================
-           LIVE CURRENT / NEXT
-
-           Backend Asansol value is NOT used while the
-           simulation is moving.
-
-           The map simulation is the live source of truth
-           for Current / Next.
+           CURRENT / NEXT
         ================================================= */
 
         const stationInfo =
@@ -1317,10 +1666,14 @@ function RailwayMap({
         ================================================= */
 
         let locationType =
-          "In Transit";
+          hasDatabaseLocation
+            ? "Database Anchored"
+            : "Simulation Fallback";
 
         let locationDescription =
-          "Train is moving along the scheduled route.";
+          hasDatabaseLocation
+            ? "Simulation is continuing from the latest database telemetry anchor."
+            : "No database telemetry is currently available. Simulation is providing the operational position.";
 
         if (
           approachingStation &&
@@ -1328,12 +1681,20 @@ function RailwayMap({
             1500
         ) {
           locationType =
-            "Approaching Station";
+            hasDatabaseLocation
+              ? "Database Anchored • Approaching"
+              : "Simulation • Approaching";
 
           locationDescription =
             `Train is approaching ${approachingStation.name}.`;
         }
 
+        /*
+          IMPORTANT:
+          During simulation, report the CURRENT
+          simulated position instead of repeatedly
+          reporting the old DB coordinate.
+        */
         callbacks
           .onLocationUpdate?.({
             lat:
@@ -1356,23 +1717,26 @@ function RailwayMap({
 
     return () =>
       clearInterval(interval);
-  }, []);
-
-  /* =====================================================
-     DISPLAYED PROGRESS
-===================================================== */
-
-  const displayedProgress =
-    currentProgress;
+  }, [
+    hasDatabaseLocation,
+    dbLat,
+    dbLng,
+    databaseRecordKey,
+    databaseSpeed,
+    backendDestination,
+    totalRouteDistance,
+    routeDistances,
+    stationDistances,
+  ]);
 
   /* =====================================================
      COMPLETED ROUTE
-===================================================== */
+  ===================================================== */
 
   const completedRoute =
     useMemo(() => {
       const progress =
-        displayedProgress;
+        currentProgress;
 
       const routePointCount =
         Math.max(
@@ -1394,13 +1758,13 @@ function RailwayMap({
         trainPosition,
       ];
     }, [
-      displayedProgress,
+      currentProgress,
       trainPosition,
     ]);
 
   /* =====================================================
      HIGHEST ACTIVE RISK
-===================================================== */
+  ===================================================== */
 
   const highestActiveRisk =
     useMemo(() => {
@@ -1430,8 +1794,25 @@ function RailwayMap({
     }, [activeRisks]);
 
   /* =====================================================
+     DISPLAY
+  ===================================================== */
+
+  const displayedTrainPosition =
+    trainPosition;
+
+  const dataSourceLabel =
+    hasDatabaseLocation
+      ? "DATABASE ANCHORED"
+      : "SIMULATION FALLBACK";
+
+  const displayedSpeed =
+    Number.isFinite(speed)
+      ? Math.round(speed)
+      : null;
+
+  /* =====================================================
      MAP
-===================================================== */
+  ===================================================== */
 
   return (
     <div
@@ -1461,9 +1842,7 @@ function RailwayMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* =================================================
-            COMPLETE ROUTE
-        ================================================= */}
+        {/* COMPLETE ROUTE */}
 
         <Polyline
           positions={ROUTE}
@@ -1474,9 +1853,7 @@ function RailwayMap({
           }}
         />
 
-        {/* =================================================
-            COMPLETED / LIVE ROUTE
-        ================================================= */}
+        {/* ACTIVE ROUTE */}
 
         <Polyline
           positions={completedRoute}
@@ -1487,15 +1864,22 @@ function RailwayMap({
           }}
         />
 
-        {/* =================================================
-            RISK ZONES
-        ================================================= */}
+        {/* RISK ZONES */}
 
         {(
           Array.isArray(riskZones)
             ? riskZones
             : DEFAULT_RISKS
         ).map((risk) => {
+          if (
+            !isValidCoordinate(
+              risk?.lat,
+              risk?.lng
+            )
+          ) {
+            return null;
+          }
+
           const isActive =
             activeRisks.some(
               (activeRisk) =>
@@ -1509,8 +1893,7 @@ function RailwayMap({
                 "Low"
             );
 
-          let fillOpacity =
-            0.12;
+          let fillOpacity = 0.12;
 
           if (
             severity === "High"
@@ -1522,8 +1905,7 @@ function RailwayMap({
           }
 
           if (
-            severity ===
-            "Medium"
+            severity === "Medium"
           ) {
             fillOpacity =
               isActive
@@ -1543,8 +1925,8 @@ function RailwayMap({
             <Circle
               key={risk.id}
               center={[
-                risk.lat,
-                risk.lng,
+                Number(risk.lat),
+                Number(risk.lng),
               ]}
               radius={
                 Number(
@@ -1575,8 +1957,7 @@ function RailwayMap({
 
                 <br />
 
-                Type:{" "}
-                {risk.type}
+                Type: {risk.type}
 
                 <br />
 
@@ -1602,9 +1983,7 @@ function RailwayMap({
           );
         })}
 
-        {/* =================================================
-            STATIONS
-        ================================================= */}
+        {/* STATIONS */}
 
         {STATIONS.map(
           (station) => {
@@ -1680,13 +2059,11 @@ function RailwayMap({
           }
         )}
 
-        {/* =================================================
-            LIVE TRAIN
-        ================================================= */}
+        {/* LIVE TRAIN */}
 
         <Marker
           position={
-            trainPosition
+            displayedTrainPosition
           }
           icon={trainIcon}
           zIndexOffset={1000}
@@ -1702,24 +2079,51 @@ function RailwayMap({
 
             <br />
 
-            Status:{" "}
-            {movement}
+            Status: {movement}
 
             <br />
 
             Speed:{" "}
-            {Math.round(
-              speed
-            )}{" "}
+            {displayedSpeed !== null
+              ? displayedSpeed
+              : "—"}{" "}
             km/h
 
             <br />
 
             Route Progress:{" "}
             {Math.round(
-              displayedProgress
+              currentProgress
             )}
             %
+
+            <br />
+
+            Data Source:{" "}
+            {dataSourceLabel}
+
+            {hasDatabaseLocation && (
+              <>
+                <br />
+
+                <strong>
+                  Database Anchor
+                </strong>
+
+                <br />
+
+                Station:{" "}
+                {databaseStation ||
+                  "—"}
+
+                <br />
+
+                Coordinates:{" "}
+                {dbLat.toFixed(4)}
+                ,{" "}
+                {dbLng.toFixed(4)}
+              </>
+            )}
           </Popup>
         </Marker>
       </MapContainer>
@@ -1742,7 +2146,7 @@ function RailwayMap({
           borderRadius: "10px",
           boxShadow:
             "0 4px 18px rgba(0,0,0,0.25)",
-          minWidth: "175px",
+          minWidth: "190px",
           backdropFilter:
             "blur(8px)",
         }}
@@ -1778,9 +2182,9 @@ function RailwayMap({
           }}
         >
           Speed:{" "}
-          {Math.round(
-            speed
-          )}{" "}
+          {displayedSpeed !== null
+            ? displayedSpeed
+            : "—"}{" "}
           km/h
         </div>
 
@@ -1793,10 +2197,40 @@ function RailwayMap({
         >
           Progress:{" "}
           {Math.round(
-            displayedProgress
+            currentProgress
           )}
           %
         </div>
+
+        <div
+          style={{
+            marginTop: "6px",
+            fontSize: "10px",
+            color:
+              hasDatabaseLocation
+                ? "#86efac"
+                : "#93c5fd",
+            fontWeight: 700,
+          }}
+        >
+          ● {dataSourceLabel}
+        </div>
+
+        {hasDatabaseLocation &&
+          databaseRecordedAt && (
+            <div
+              style={{
+                marginTop: "3px",
+                fontSize: "9px",
+                opacity: 0.65,
+              }}
+            >
+              DB update:{" "}
+              {new Date(
+                databaseRecordedAt
+              ).toLocaleTimeString()}
+            </div>
+          )}
 
         {highestActiveRisk && (
           <div
@@ -1816,7 +2250,7 @@ function RailwayMap({
       </div>
 
       {/* =================================================
-          LIVE BADGE
+          DATA SOURCE BADGE
       ================================================= */}
 
       <div
@@ -1847,7 +2281,9 @@ function RailwayMap({
             height: "7px",
             borderRadius: "50%",
             background:
-              "#22c55e",
+              hasDatabaseLocation
+                ? "#22c55e"
+                : "#3b82f6",
             display:
               "inline-block",
             animation:
@@ -1855,11 +2291,11 @@ function RailwayMap({
           }}
         />
 
-        LIVE SIMULATION
+        {dataSourceLabel}
       </div>
 
       {/* =================================================
-          ACTIVE RISK POPUP
+          ACTIVE RISK
       ================================================= */}
 
       {highestActiveRisk && (
@@ -1990,7 +2426,7 @@ function RailwayMap({
       </div>
 
       {/* =================================================
-          FOOTER LABEL
+          FOOTER
       ================================================= */}
 
       <div
@@ -2009,7 +2445,7 @@ function RailwayMap({
           opacity: 0.9,
         }}
       >
-        Prototype simulation • Railway Control Room
+        Hybrid telemetry • Database anchor + simulation
       </div>
 
       {/* =================================================

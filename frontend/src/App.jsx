@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import RailwayMap from "./map";
+import trainData from "./trainData";
 
 import {
   getTrainStatus,
@@ -8,7 +9,6 @@ import {
   getAlerts,
   getRiskZones,
   getSafetyRequests,
-  getTrainLocation,
   getApiSourceStatus,
 } from "./service/api";
 
@@ -22,15 +22,18 @@ import {
 } from "recharts";
 
 function App() {
-  const [train, setTrain] = useState(null);
+  const [train, setTrain] = useState(trainData);
   const [routeData, setRouteData] = useState(null);
-  const [eta, setEta] = useState(null);
+  const [eta, setEta] = useState({
+    scheduledEta: trainData.scheduledEta,
+    predictedEta: trainData.predictedEta,
+    etaDifference: trainData.etaDifference,
+    predictionConfidence: trainData.predictionConfidence,
+  });
   const [alerts, setAlerts] = useState([]);
-  const [riskZones, setRiskZones] = useState([]);
+  const [riskZones, setRiskZones] = useState(trainData.riskZones || []);
   const [safetyRequests, setSafetyRequests] = useState([]);
-
-  const [databaseLocation, setDatabaseLocation] =
-    useState(null);
+  const [databaseLocation, setDatabaseLocation] = useState(null);
 
   const [apiSourceStatus, setApiSourceStatus] =
     useState("UNKNOWN");
@@ -52,7 +55,7 @@ function App() {
 
   /* =====================================================
      TRAIN SEARCH
-     ===================================================== */
+  ===================================================== */
 
   const handleTrainSearch = () => {
     const query = searchInput.trim().toLowerCase();
@@ -99,8 +102,43 @@ function App() {
   };
 
   /* =====================================================
-     LOAD DASHBOARD DATA
-     ===================================================== */
+     LOAD DASHBOARD DATA + DATABASE TELEMETRY
+  ===================================================== */
+
+  const fetchDatabaseLocation = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/database/train-locations/${encodeURIComponent(
+          trainData.trainNumber
+        )}`
+      );
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+
+      if (!data || data.message) return null;
+
+      const latitude = Number(data.latitude ?? data.lat);
+      const longitude = Number(data.longitude ?? data.lng);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return null;
+      }
+
+      return {
+        latitude,
+        longitude,
+        speed: data.speed != null ? Number(data.speed) : null,
+        locationId: data.locationId ?? data.location_id ?? null,
+        stationCode: data.stationCode ?? data.station_code ?? null,
+        recordedAt: data.recordedAt ?? data.recorded_at ?? null,
+      };
+    } catch (error) {
+      console.warn("Database telemetry unavailable:", error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -108,13 +146,13 @@ function App() {
     const loadDashboardData = async () => {
       try {
         const [
-          trainData,
-          routeDataResponse,
+          trainStatus,
+          route,
           etaData,
           alertData,
           riskData,
           safetyData,
-          locationData,
+          dbLocation,
         ] = await Promise.all([
           getTrainStatus(),
           getTrainRoute(),
@@ -122,56 +160,99 @@ function App() {
           getAlerts(),
           getRiskZones(),
           getSafetyRequests(),
-          getTrainLocation(),
+          fetchDatabaseLocation(),
         ]);
 
         if (!mounted) return;
 
-        setTrain(trainData || null);
-        setRouteData(routeDataResponse || null);
-        setEta(etaData || null);
+        const mergedTrain = {
+          ...trainData,
+          ...(trainStatus || {}),
+          delayPropagation:
+            Array.isArray(trainStatus?.delayPropagation) &&
+            trainStatus.delayPropagation.length > 0
+              ? trainStatus.delayPropagation
+              : trainData.delayPropagation || [],
+          riskZones:
+            Array.isArray(trainStatus?.riskZones) &&
+            trainStatus.riskZones.length > 0
+              ? trainStatus.riskZones
+              : trainData.riskZones || [],
+        };
+
+        const mergedEta = {
+          scheduledEta:
+            etaData?.scheduledEta ??
+            etaData?.scheduled_eta ??
+            mergedTrain.scheduledEta ??
+            trainData.scheduledEta,
+          predictedEta:
+            etaData?.predictedEta ??
+            etaData?.predicted_eta ??
+            mergedTrain.predictedEta ??
+            trainData.predictedEta,
+          etaDifference:
+            etaData?.etaDifference ??
+            etaData?.eta_difference ??
+            mergedTrain.etaDifference ??
+            mergedTrain.delay ??
+            trainData.etaDifference,
+          predictionConfidence:
+            etaData?.predictionConfidence ??
+            etaData?.prediction_confidence ??
+            mergedTrain.predictionConfidence ??
+            trainData.predictionConfidence,
+          ...(etaData || {}),
+        };
+
+        setTrain(mergedTrain);
+        setRouteData(route || null);
+        setEta(mergedEta);
 
         setAlerts(
-          Array.isArray(alertData)
+          Array.isArray(alertData) && alertData.length > 0
             ? alertData
-            : []
+            : trainData.alerts || []
         );
 
         setRiskZones(
-          Array.isArray(riskData)
+          Array.isArray(riskData) && riskData.length > 0
             ? riskData
-            : []
+            : trainData.riskZones || []
         );
 
         setSafetyRequests(
-          Array.isArray(safetyData)
-            ? safetyData
-            : []
+          Array.isArray(safetyData) ? safetyData : []
         );
 
-        setDatabaseLocation(
-          locationData || null
-        );
-
-        setApiSourceStatus(
-          getApiSourceStatus()
-        );
-
+        setDatabaseLocation(dbLocation);
+        setApiSourceStatus(getApiSourceStatus());
         setLastUpdated(new Date());
       } catch (error) {
-        console.error(
-          "Dashboard data loading error:",
-          error
-        );
+        console.error("Dashboard data loading error:", error);
+
+        if (!mounted) return;
+
+        setTrain(trainData);
+        setRouteData(null);
+        setEta({
+          scheduledEta: trainData.scheduledEta,
+          predictedEta: trainData.predictedEta,
+          etaDifference: trainData.etaDifference,
+          predictionConfidence: trainData.predictionConfidence,
+        });
+        setAlerts(trainData.alerts || []);
+        setRiskZones(trainData.riskZones || []);
+        setSafetyRequests([]);
+        setDatabaseLocation(null);
+        setApiSourceStatus("MOCK");
+        setLastUpdated(new Date());
       }
     };
 
     loadDashboardData();
 
-    const interval = setInterval(
-      loadDashboardData,
-      15000
-    );
+    const interval = setInterval(loadDashboardData, 10000);
 
     return () => {
       mounted = false;
@@ -181,7 +262,7 @@ function App() {
 
   /* =====================================================
      UPDATE SEARCHED TRAIN
-     ===================================================== */
+  ===================================================== */
 
   useEffect(() => {
     if (!searchedTrain || !train) return;
@@ -196,7 +277,7 @@ function App() {
 
   /* =====================================================
      ETA HISTORY
-     ===================================================== */
+  ===================================================== */
 
   useEffect(() => {
     if (!liveEta?.predictedEta) return;
@@ -259,7 +340,7 @@ function App() {
 
   /* =====================================================
      LIVE ETA SIMULATION
-     ===================================================== */
+  ===================================================== */
 
   useEffect(() => {
     if (!eta?.predictedEta) return;
@@ -334,7 +415,7 @@ function App() {
 
   /* =====================================================
      BASIC VALUES
-     ===================================================== */
+  ===================================================== */
 
   const currentDelay =
     Number(
@@ -354,55 +435,16 @@ function App() {
   const liveCurrentStation =
     stationInfo?.currentStation ||
     train?.currentStation ||
-    train?.current_station ||
     "Monitoring";
 
   const liveNextStation =
     stationInfo?.nextStation !== undefined
       ? stationInfo.nextStation
-      : train?.nextStation ||
-        train?.next_station ||
-        "—";
-
-  const liveFinalDestination =
-    eta?.finalDestination ||
-    eta?.destination ||
-    routeData?.finalDestination ||
-    routeData?.destination ||
-    train?.finalDestination ||
-    train?.destination ||
-    "—";
-
-  /* =====================================================
-     DATABASE LOCATION VALUES
-     ===================================================== */
-
-  const databaseStation =
-    databaseLocation?.stationCode ||
-    databaseLocation?.station_code ||
-    "—";
-
-  const databaseSpeed =
-    databaseLocation?.speed !== null &&
-    databaseLocation?.speed !== undefined
-      ? Number(databaseLocation.speed)
-      : null;
-
-  const databaseRecordedAt =
-    databaseLocation?.recordedAt ||
-    databaseLocation?.recorded_at ||
-    null;
-
-  const formattedDatabaseTime =
-    databaseRecordedAt
-      ? new Date(
-          databaseRecordedAt
-        ).toLocaleTimeString()
-      : "—";
+      : train?.nextStation || "—";
 
   /* =====================================================
      SAFETY SUMMARY
-     ===================================================== */
+  ===================================================== */
 
   const safetySummary = useMemo(() => {
     const requests = Array.isArray(
@@ -453,89 +495,23 @@ function App() {
 
   /* =====================================================
      DELAY PROPAGATION
-     ===================================================== */
+  ===================================================== */
 
   const propagation = useMemo(() => {
     const delayPropagationData =
       Array.isArray(train?.delayPropagation) &&
       train.delayPropagation.length > 0
         ? train.delayPropagation
-        : [
-            {
-              station:
-                train?.next_station ||
-                train?.nextStation ||
-                "Dhanbad",
-              scheduledTime: null,
-              propagationFactor: 0.67,
-              risk: "Medium",
-            },
-            {
-              station:
-                train?.destination ||
-                train?.finalDestination ||
-                "New Delhi",
-              scheduledTime: null,
-              propagationFactor: 0.42,
-              risk: "Low",
-            },
-          ];
-
-    const stationOrder = [
-      "Kolkata",
-      "Asansol",
-      "Dhanbad",
-      "Gomoh",
-      "Koderma",
-      "New Delhi",
-    ];
-
-    const currentStationIndex =
-      stationOrder.findIndex(
-        (station) =>
-          station.toLowerCase() ===
-          String(liveCurrentStation || "")
-            .trim()
-            .toLowerCase()
-      );
-
-    const downstreamPropagation =
-      delayPropagationData.filter((item) => {
-        const itemStation = String(
-          item?.station ||
-            item?.stationName ||
-            ""
-        )
-          .trim()
-          .toLowerCase();
-
-        const stationIndex =
-          stationOrder.findIndex(
-            (station) =>
-              station.toLowerCase() ===
-              itemStation
-          );
-
-        if (stationIndex === -1) {
-          return false;
-        }
-
-        if (currentStationIndex === -1) {
-          return true;
-        }
-
-        return stationIndex > currentStationIndex;
-      });
+        : Array.isArray(trainData.delayPropagation)
+        ? trainData.delayPropagation
+        : [];
 
     const convertTimeToMinutes = (timeString) => {
       if (!timeString) return null;
 
-      const parts =
-        String(timeString).split(":");
+      const parts = String(timeString).split(":");
 
-      if (parts.length !== 2) {
-        return null;
-      }
+      if (parts.length !== 2) return null;
 
       const hours = Number(parts[0]);
       const minutes = Number(parts[1]);
@@ -550,9 +526,7 @@ function App() {
       return hours * 60 + minutes;
     };
 
-    const formatMinutesToTime = (
-      totalMinutes
-    ) => {
+    const formatMinutesToTime = (totalMinutes) => {
       if (totalMinutes === null) {
         return "—";
       }
@@ -576,7 +550,7 @@ function App() {
       )}`;
     };
 
-    return downstreamPropagation.map(
+    return delayPropagationData.map(
       (item) => {
         const factor =
           Number(
@@ -613,15 +587,11 @@ function App() {
         };
       }
     );
-  }, [
-    train,
-    currentDelay,
-    liveCurrentStation,
-  ]);
+  }, [train, currentDelay]);
 
   /* =====================================================
      ROUTE RISK
-     ===================================================== */
+  ===================================================== */
 
   const routeRisk = useMemo(() => {
     const activeRisks =
@@ -634,7 +604,9 @@ function App() {
     };
 
     if (activeRisks.length === 0) {
-      return "LOW";
+      return riskZones.length > 0
+        ? "MEDIUM"
+        : "LOW";
     }
 
     let highest = 0;
@@ -648,16 +620,11 @@ function App() {
       );
     });
 
-    if (highest === 3) {
-      return "HIGH";
-    }
-
-    if (highest === 2) {
-      return "MEDIUM";
-    }
+    if (highest === 3) return "HIGH";
+    if (highest === 2) return "MEDIUM";
 
     return "LOW";
-  }, [riskInfo]);
+  }, [riskInfo, riskZones]);
 
   const routeRiskClass =
     routeRisk === "HIGH"
@@ -666,16 +633,9 @@ function App() {
       ? "text-yellow-400"
       : "text-emerald-400";
 
-  const activeRiskDisplay =
-    Array.isArray(
-      riskInfo?.activeRisks
-    )
-      ? riskInfo.activeRisks
-      : [];
-
   /* =====================================================
      WHY ETA CHANGED
-     ===================================================== */
+  ===================================================== */
 
   const etaReasons = useMemo(() => {
     const reasons = [];
@@ -705,14 +665,11 @@ function App() {
         Math.max(
           ...propagation.map(
             (item) =>
-              item.calculatedDelay ||
-              0
+              item.calculatedDelay || 0
           )
         );
 
-      if (
-        maximumPropagation > 0
-      ) {
+      if (maximumPropagation > 0) {
         reasons.push({
           label:
             "Delay propagation",
@@ -735,17 +692,13 @@ function App() {
             "congestion" ||
           alert?.title
             ?.toLowerCase()
-            .includes(
-              "congestion"
-            )
+            .includes("congestion")
       );
 
     const trainHasCongestion =
       train?.delayReason
         ?.toLowerCase()
-        .includes(
-          "congestion"
-        );
+        .includes("congestion");
 
     if (
       hasCongestion ||
@@ -767,13 +720,10 @@ function App() {
     const hasSpeedRestriction =
       alerts.some(
         (alert) =>
-          alert?.type ===
-            "speed" ||
+          alert?.type === "speed" ||
           alert?.title
             ?.toLowerCase()
-            .includes(
-              "speed"
-            )
+            .includes("speed")
       );
 
     if (hasSpeedRestriction) {
@@ -790,12 +740,12 @@ function App() {
       });
     }
 
-    if (
-      activeRiskDisplay.length >
-      0
-    ) {
+    const activeRisks =
+      riskInfo?.activeRisks || [];
+
+    if (activeRisks.length > 0) {
       const highestActiveRisk =
-        activeRiskDisplay.reduce(
+        activeRisks.reduce(
           (highest, risk) => {
             const rank = {
               Low: 1,
@@ -804,9 +754,8 @@ function App() {
             };
 
             return (
-              (rank[
-                risk?.severity
-              ] || 0) >
+              (rank[risk?.severity] ||
+                0) >
               (rank[
                 highest?.severity
               ] || 0)
@@ -842,22 +791,19 @@ function App() {
       "HALTED AT STATION"
     ) {
       reasons.push({
-        label:
-          "Station dwell",
+        label: "Station dwell",
 
         detail:
           `Train is currently halted at ${liveCurrentStation}. Station dwell time is included in the operational forecast.`,
 
-        impact:
-          "ETA monitored",
+        impact: "ETA monitored",
 
         type: "halt",
       });
     }
 
     if (
-      liveMovement ===
-      "APPROACHING"
+      liveMovement === "APPROACHING"
     ) {
       reasons.push({
         label:
@@ -866,8 +812,7 @@ function App() {
         detail:
           `Train is approaching ${liveNextStation}. Speed adjustment is being considered in the live simulation.`,
 
-        impact:
-          "ETA monitored",
+        impact: "ETA monitored",
 
         type: "station",
       });
@@ -893,7 +838,7 @@ function App() {
     propagation,
     alerts,
     train,
-    activeRiskDisplay,
+    riskInfo,
     liveMovement,
     liveCurrentStation,
     liveNextStation,
@@ -901,7 +846,7 @@ function App() {
 
   /* =====================================================
      ALERT COUNT
-     ===================================================== */
+  ===================================================== */
 
   const warningAlerts =
     alerts.filter(
@@ -912,13 +857,12 @@ function App() {
           "warning" ||
         String(
           alert?.severity || ""
-        ).toLowerCase() ===
-          "high"
+        ).toLowerCase() === "high"
     ).length;
 
   /* =====================================================
      LOADING
-     ===================================================== */
+  ===================================================== */
 
   if (!train || !eta) {
     return (
@@ -938,12 +882,14 @@ function App() {
 
   /* =====================================================
      DASHBOARD
-     ===================================================== */
+  ===================================================== */
 
   return (
     <div className="min-h-screen bg-[#06101d] text-white">
 
-      {/* HEADER */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
       <header className="border-b border-white/10 bg-[#081321]">
 
@@ -1132,6 +1078,10 @@ function App() {
 
       </header>
 
+      {/* =================================================
+          MAIN
+      ================================================= */}
+
       <main className="mx-auto max-w-[1600px] px-5 py-3">
 
         {/* KPI CARDS */}
@@ -1159,10 +1109,9 @@ function App() {
               <div>
 
                 <div className="text-xl font-bold text-white">
-                  {(
-                    liveEta?.predictedEta ||
-                    eta.predictedEta
-                  ) || "—"}
+                  {(liveEta?.predictedEta ||
+                    eta.predictedEta) ||
+                    "—"}
                 </div>
 
                 <div className="text-[9px] text-slate-600">
@@ -1213,9 +1162,11 @@ function App() {
                   width="100%"
                   height="100%"
                 >
+
                   <LineChart
                     data={etaHistory}
                   >
+
                     <XAxis
                       dataKey="time"
                       hide
@@ -1243,7 +1194,9 @@ function App() {
                       strokeWidth={2}
                       dot={false}
                     />
+
                   </LineChart>
+
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center text-[9px] text-slate-700">
@@ -1404,11 +1357,11 @@ function App() {
               <div className="text-right">
 
                 <div className="text-xs font-bold text-white">
-                  {activeRiskDisplay.length}
+                  {riskZones.length}
                 </div>
 
                 <div className="text-[8px] text-slate-600">
-                  active risk zones
+                  risk zones
                 </div>
 
               </div>
@@ -1479,34 +1432,35 @@ function App() {
                 train={train}
                 routeData={routeData}
                 backendCurrentStation={
-                  liveCurrentStation
+                  train?.currentStation ||
+                  trainData.currentStation
                 }
                 backendNextStation={
-                  liveNextStation
+                  train?.nextStation ||
+                  trainData.nextStation
                 }
                 backendDestination={
-                  liveFinalDestination
+                  train?.finalDestination ||
+                  trainData.finalDestination
                 }
+                databaseLocation={databaseLocation}
                 riskZones={riskZones}
-                onLocationUpdate={
-                  setMapLocation
-                }
-                onRouteProgress={
-                  setRouteProgress
-                }
                 onProgressUpdate={
                   setRouteProgress
                 }
-                onStationInfo={
-                  setStationInfo
+                onLocationUpdate={
+                  setMapLocation
                 }
                 onStationUpdate={
                   setStationInfo
                 }
-                onRiskInfo={
-                  setRiskInfo
+                onStationInfo={
+                  setStationInfo
                 }
                 onRiskUpdate={
+                  setRiskInfo
+                }
+                onRiskInfo={
                   setRiskInfo
                 }
               />
@@ -1575,76 +1529,6 @@ function App() {
 
               </div>
 
-              {/* DATABASE TELEMETRY */}
-
-              <div className="mt-2 rounded-lg border border-emerald-400/10 bg-emerald-400/[0.035] p-2">
-
-                <div className="flex items-center justify-between">
-
-                  <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                    DATABASE TELEMETRY
-                  </div>
-
-                  <div className="flex items-center gap-1">
-
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-
-                    <span className="text-[7px] font-semibold text-emerald-400">
-                      BACKEND
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <div className="mt-2 grid grid-cols-3 gap-1.5">
-
-                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
-
-                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
-                      DB Station
-                    </div>
-
-                    <div className="mt-0.5 truncate text-[10px] font-bold text-white">
-                      {databaseStation}
-                    </div>
-
-                  </div>
-
-                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
-
-                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
-                      Speed
-                    </div>
-
-                    <div className="mt-0.5 text-[10px] font-bold text-cyan-300">
-                      {databaseSpeed !== null
-                        ? `${databaseSpeed} km/h`
-                        : "—"}
-                    </div>
-
-                  </div>
-
-                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
-
-                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
-                      Recorded
-                    </div>
-
-                    <div className="mt-0.5 truncate text-[10px] font-bold text-white">
-                      {formattedDatabaseTime}
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="mt-1.5 text-[7px] text-slate-600">
-                  Source: TrainLocation database • Latest record
-                </div>
-
-              </div>
-
             </div>
 
             {/* ROUTE PROGRESS */}
@@ -1698,12 +1582,12 @@ function App() {
               <div className="mt-1 flex justify-between text-[8px] text-slate-600">
 
                 <span>
-                  {liveCurrentStation ||
+                  {train.currentStation ||
                     "Origin"}
                 </span>
 
                 <span>
-                  {liveFinalDestination ||
+                  {train.finalDestination ||
                     "Destination"}
                 </span>
 
@@ -1891,7 +1775,7 @@ function App() {
 
         <section className="mt-3 grid gap-3 lg:grid-cols-2">
 
-          {/* ACTIVE RISK MONITOR */}
+          {/* RISK MONITOR */}
 
           <div className="rounded-xl border border-red-400/10 bg-[#0a1424] p-3">
 
@@ -1904,7 +1788,7 @@ function App() {
                 </div>
 
                 <div className="text-[9px] text-slate-600">
-                  Only risks currently affecting the train section
+                  Track and wildlife operational risk zones
                 </div>
 
               </div>
@@ -1919,13 +1803,13 @@ function App() {
 
             <div className="mt-2 space-y-1.5">
 
-              {activeRiskDisplay.length ===
+              {riskZones.length ===
               0 ? (
                 <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[10px] text-slate-600">
-                  No active risk zones around the train.
+                  No active risk zones reported.
                 </div>
               ) : (
-                activeRiskDisplay
+                riskZones
                   .slice(0, 5)
                   .map(
                     (
@@ -2199,6 +2083,8 @@ function App() {
         </section>
 
       </main>
+
+      {/* FOOTER */}
 
       <footer className="border-t border-white/10 bg-[#081321]">
 

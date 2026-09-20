@@ -1,50 +1,83 @@
 const trainData = {
+  /*
+   * =====================================================
+   * DEMO TRAIN DATA
+   * Monitored route:
+   * Kolkata -> Asansol -> Dhanbad -> Gomoh
+   * -> Koderma -> New Delhi
+   *
+   * This is simulation/demo data.
+   * It is not live railway operational data.
+   * =====================================================
+   */
+
   trainNumber: "12345",
   trainName: "Howrah Express",
 
-  currentStation: "Howrah Junction",
-  nextStation: "Bandel Junction",
-  finalDestination: "Barddhaman Junction",
+  /* =====================================================
+     CURRENT TRAIN STATUS
+  ===================================================== */
+
+  currentStation: "Kolkata",
+  nextStation: "Asansol",
+  finalDestination: "New Delhi",
 
   currentLocation: {
-    lat: 22.5839,
-    lng: 88.3428,
+    lat: 22.5726,
+    lng: 88.3639,
     type: "At Station",
-    description: "Train is currently at Howrah Junction",
+    description: "Train is currently at Kolkata",
   },
+
+  /* =====================================================
+     ETA
+  ===================================================== */
 
   scheduledEta: "14:25",
   predictedEta: "14:35",
   etaDifference: 10,
 
-  delay: 12,
+  /* Keep delay consistent with dashboard ETA deviation */
+  delay: 10,
+
   delayReason: "Operational congestion",
   status: "On Route",
 
   predictionConfidence: 92,
 
+  /* =====================================================
+     DELAY PROPAGATION
+     Current monitored route:
+     Kolkata -> Asansol -> Dhanbad -> Gomoh
+     -> Koderma -> New Delhi
+  ===================================================== */
+
   delayPropagation: [
     {
       station: "Asansol",
-      scheduledTime: "21:55",
-      propagatedDelay: 18,
-      propagationFactor: 0.78,
-      risk: "High",
+      scheduledTime: null,
+      propagatedDelay: 7,
+      propagationFactor: 0.67,
+      risk: "Medium",
     },
     {
       station: "Dhanbad",
-      scheduledTime: "22:30",
-      propagatedDelay: 15,
-      propagationFactor: 0.65,
-      risk: "Medium",
+      scheduledTime: null,
+      propagatedDelay: 4,
+      propagationFactor: 0.42,
+      risk: "Low",
     },
   ],
+
+  /* =====================================================
+     OPERATIONAL ALERTS
+  ===================================================== */
 
   alerts: [
     {
       type: "delay",
       title: "Delay Alert",
-      message: "Train is running 12 minutes late.",
+      message: "Train is running 10 minutes late.",
       severity: "warning",
     },
     {
@@ -67,54 +100,86 @@ const trainData = {
     },
   ],
 
+  /* =====================================================
+     RISK ZONES
+     These coordinates are aligned with the current
+     Kolkata -> New Delhi demo route.
+  ===================================================== */
+
   riskZones: [
     {
       id: 1,
-      name: "Bandel Track Zone",
+      name: "Asansol Track Zone",
       type: "Track Risk",
-      severity: "High",
-      lat: 22.88,
-      lng: 88.347,
+      severity: "Medium",
+      lat: 23.6739,
+      lng: 87.148,
       radius: 900,
       impact: "Possible speed restriction",
     },
+
     {
       id: 2,
-      name: "Wildlife Sensitive Zone",
-      type: "Wildlife Risk",
-      severity: "Medium",
-      lat: 23.08,
-      lng: 88.25,
+      name: "Dhanbad Operational Zone",
+      type: "Operational Risk",
+      severity: "High",
+      lat: 23.7957,
+      lng: 86.4304,
       radius: 1200,
-      impact: "Wildlife crossing possibility",
+      impact: "Operational congestion possibility",
     },
+
     {
       id: 3,
-      name: "Barddhaman Approach",
+      name: "Koderma Track Zone",
       type: "Track Risk",
       severity: "Low",
-      lat: 23.15,
-      lng: 88.05,
+      lat: 24.4674,
+      lng: 85.593,
       radius: 800,
       impact: "Operational caution required",
     },
   ],
 
+  /* =====================================================
+     UPCOMING STATIONS
+  ===================================================== */
+
   upcomingStations: [
     {
-      name: "Howrah Junction",
+      name: "Kolkata",
       status: "Current",
-      eta: "13:40",
+      eta: null,
     },
+
     {
-      name: "Bandel Junction",
+      name: "Asansol",
       status: "Next",
-      eta: "14:25",
+      eta: null,
     },
+
     {
-      name: "Barddhaman Junction",
+      name: "Dhanbad",
+      status: "Upcoming",
+      eta: null,
+    },
+
+    {
+      name: "Gomoh",
+      status: "Upcoming",
+      eta: null,
+    },
+
+    {
+      name: "Koderma",
+      status: "Upcoming",
+      eta: null,
+    },
+
+    {
+      name: "New Delhi",
       status: "Destination",
-      eta: "15:15",
+      eta: null,
     },
   ],
 };
