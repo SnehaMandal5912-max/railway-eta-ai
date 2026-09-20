@@ -15,5 +15,6 @@ def get_train_status(train_number: str):
         "next_station": "Dhanbad",
         "delay_minutes": 15,
         "delay_reason": "Operational delay",
+        "destination": "Howrah Junction",
         "message": "Current train status fetched successfully"
     }

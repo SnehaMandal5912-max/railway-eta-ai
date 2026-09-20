@@ -244,6 +244,127 @@ export async function getTrainStatus() {
 }
 
 /* =====================================================
+   LIVE DATABASE TRAIN LOCATION
+===================================================== */
+
+export async function getTrainLocation() {
+  const fallback = {
+    train_number: TRAIN_NUMBER,
+    station_code: null,
+    latitude: null,
+    longitude: null,
+    speed: null,
+    recorded_at: null,
+  };
+
+  const data = await fetchAPI(
+    `/database/train-locations/${TRAIN_NUMBER}`,
+    fallback
+  );
+
+  return {
+    ...data,
+
+    trainNumber:
+      data.train_number ??
+      data.trainNumber ??
+      TRAIN_NUMBER,
+
+    stationCode:
+      data.station_code ??
+      data.stationCode ??
+      null,
+
+    latitude:
+      data.latitude !== undefined
+        ? Number(data.latitude)
+        : null,
+
+    longitude:
+      data.longitude !== undefined
+        ? Number(data.longitude)
+        : null,
+
+    speed:
+      data.speed !== undefined
+        ? Number(data.speed)
+        : null,
+
+    recordedAt:
+      data.recorded_at ??
+      data.recordedAt ??
+      null,
+
+    locationId:
+      data.location_id ??
+      data.locationId ??
+      null,
+  };
+}
+
+/* =====================================================
+   DESTINATION INFORMATION
+===================================================== */
+
+export async function getDestinationInfo() {
+  const fallback = {
+    train_number: TRAIN_NUMBER,
+    destination:
+      trainData.finalDestination,
+    arrival_time:
+      trainData.scheduledEta || null,
+    platform: null,
+    city: null,
+    state: null,
+    important_places: [],
+  };
+
+  const data = await fetchAPI(
+    `/trains/${TRAIN_NUMBER}/destination`,
+    fallback
+  );
+
+  return {
+    ...data,
+
+    trainNumber:
+      data.train_number ??
+      data.trainNumber ??
+      TRAIN_NUMBER,
+
+    destination:
+      data.destination ??
+      data.final_destination ??
+      data.finalDestination ??
+      trainData.finalDestination,
+
+    arrivalTime:
+      data.arrival_time ??
+      data.arrivalTime ??
+      null,
+
+    platform:
+      data.platform ??
+      null,
+
+    city:
+      data.city ??
+      null,
+
+    state:
+      data.state ??
+      null,
+
+    importantPlaces:
+      Array.isArray(data.important_places)
+        ? data.important_places
+        : Array.isArray(data.importantPlaces)
+        ? data.importantPlaces
+        : [],
+  };
+}
+
+/* =====================================================
    ETA
 ===================================================== */
 

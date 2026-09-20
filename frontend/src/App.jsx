@@ -8,6 +8,7 @@ import {
   getAlerts,
   getRiskZones,
   getSafetyRequests,
+  getTrainLocation,
   getApiSourceStatus,
 } from "./service/api";
 
@@ -27,6 +28,9 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [riskZones, setRiskZones] = useState([]);
   const [safetyRequests, setSafetyRequests] = useState([]);
+
+  const [databaseLocation, setDatabaseLocation] =
+    useState(null);
 
   const [apiSourceStatus, setApiSourceStatus] =
     useState("UNKNOWN");
@@ -110,6 +114,7 @@ function App() {
           alertData,
           riskData,
           safetyData,
+          locationData,
         ] = await Promise.all([
           getTrainStatus(),
           getTrainRoute(),
@@ -117,6 +122,7 @@ function App() {
           getAlerts(),
           getRiskZones(),
           getSafetyRequests(),
+          getTrainLocation(),
         ]);
 
         if (!mounted) return;
@@ -141,6 +147,10 @@ function App() {
           Array.isArray(safetyData)
             ? safetyData
             : []
+        );
+
+        setDatabaseLocation(
+          locationData || null
         );
 
         setApiSourceStatus(
@@ -364,6 +374,33 @@ function App() {
     "—";
 
   /* =====================================================
+     DATABASE LOCATION VALUES
+     ===================================================== */
+
+  const databaseStation =
+    databaseLocation?.stationCode ||
+    databaseLocation?.station_code ||
+    "—";
+
+  const databaseSpeed =
+    databaseLocation?.speed !== null &&
+    databaseLocation?.speed !== undefined
+      ? Number(databaseLocation.speed)
+      : null;
+
+  const databaseRecordedAt =
+    databaseLocation?.recordedAt ||
+    databaseLocation?.recorded_at ||
+    null;
+
+  const formattedDatabaseTime =
+    databaseRecordedAt
+      ? new Date(
+          databaseRecordedAt
+        ).toLocaleTimeString()
+      : "—";
+
+  /* =====================================================
      SAFETY SUMMARY
      ===================================================== */
 
@@ -419,168 +456,169 @@ function App() {
      ===================================================== */
 
   const propagation = useMemo(() => {
-  const delayPropagationData =
-    Array.isArray(train?.delayPropagation) &&
-    train.delayPropagation.length > 0
-      ? train.delayPropagation
-      : [
-          {
-            station:
-              train?.next_station ||
-              train?.nextStation ||
-              "Dhanbad",
-            scheduledTime: null,
-            propagationFactor: 0.67,
-            risk: "Medium",
-          },
-          {
-            station:
-              train?.destination ||
-              train?.finalDestination ||
-              "New Delhi",
-            scheduledTime: null,
-            propagationFactor: 0.42,
-            risk: "Low",
-          },
-        ];
+    const delayPropagationData =
+      Array.isArray(train?.delayPropagation) &&
+      train.delayPropagation.length > 0
+        ? train.delayPropagation
+        : [
+            {
+              station:
+                train?.next_station ||
+                train?.nextStation ||
+                "Dhanbad",
+              scheduledTime: null,
+              propagationFactor: 0.67,
+              risk: "Medium",
+            },
+            {
+              station:
+                train?.destination ||
+                train?.finalDestination ||
+                "New Delhi",
+              scheduledTime: null,
+              propagationFactor: 0.42,
+              risk: "Low",
+            },
+          ];
 
-  const stationOrder = [
-    "Kolkata",
-    "Asansol",
-    "Dhanbad",
-    "Gomoh",
-    "Koderma",
-    "New Delhi",
-  ];
+    const stationOrder = [
+      "Kolkata",
+      "Asansol",
+      "Dhanbad",
+      "Gomoh",
+      "Koderma",
+      "New Delhi",
+    ];
 
-  const currentStationIndex =
-    stationOrder.findIndex(
-      (station) =>
-        station.toLowerCase() ===
-        String(liveCurrentStation || "")
+    const currentStationIndex =
+      stationOrder.findIndex(
+        (station) =>
+          station.toLowerCase() ===
+          String(liveCurrentStation || "")
+            .trim()
+            .toLowerCase()
+      );
+
+    const downstreamPropagation =
+      delayPropagationData.filter((item) => {
+        const itemStation = String(
+          item?.station ||
+            item?.stationName ||
+            ""
+        )
           .trim()
-          .toLowerCase()
+          .toLowerCase();
+
+        const stationIndex =
+          stationOrder.findIndex(
+            (station) =>
+              station.toLowerCase() ===
+              itemStation
+          );
+
+        if (stationIndex === -1) {
+          return false;
+        }
+
+        if (currentStationIndex === -1) {
+          return true;
+        }
+
+        return stationIndex > currentStationIndex;
+      });
+
+    const convertTimeToMinutes = (timeString) => {
+      if (!timeString) return null;
+
+      const parts =
+        String(timeString).split(":");
+
+      if (parts.length !== 2) {
+        return null;
+      }
+
+      const hours = Number(parts[0]);
+      const minutes = Number(parts[1]);
+
+      if (
+        Number.isNaN(hours) ||
+        Number.isNaN(minutes)
+      ) {
+        return null;
+      }
+
+      return hours * 60 + minutes;
+    };
+
+    const formatMinutesToTime = (
+      totalMinutes
+    ) => {
+      if (totalMinutes === null) {
+        return "—";
+      }
+
+      const normalized =
+        ((totalMinutes % 1440) + 1440) %
+        1440;
+
+      const hours =
+        Math.floor(normalized / 60);
+
+      const minutes =
+        normalized % 60;
+
+      return `${String(hours).padStart(
+        2,
+        "0"
+      )}:${String(minutes).padStart(
+        2,
+        "0"
+      )}`;
+    };
+
+    return downstreamPropagation.map(
+      (item) => {
+        const factor =
+          Number(
+            item.propagationFactor
+          ) || 0;
+
+        const calculatedDelay =
+          Math.max(
+            0,
+            Math.round(
+              currentDelay * factor
+            )
+          );
+
+        const scheduledMinutes =
+          convertTimeToMinutes(
+            item.scheduledTime
+          );
+
+        const projectedArrival =
+          scheduledMinutes === null
+            ? "—"
+            : formatMinutesToTime(
+                scheduledMinutes +
+                  calculatedDelay
+              );
+
+        return {
+          ...item,
+          calculatedDelay,
+          projectedArrival,
+          propagationPercentage:
+            Math.round(factor * 100),
+        };
+      }
     );
+  }, [
+    train,
+    currentDelay,
+    liveCurrentStation,
+  ]);
 
-  const downstreamPropagation =
-    delayPropagationData.filter((item) => {
-      const itemStation = String(
-        item?.station ||
-          item?.stationName ||
-          ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const stationIndex =
-        stationOrder.findIndex(
-          (station) =>
-            station.toLowerCase() ===
-            itemStation
-        );
-
-      if (stationIndex === -1) {
-        return false;
-      }
-
-      if (currentStationIndex === -1) {
-        return true;
-      }
-
-      return stationIndex > currentStationIndex;
-    });
-
-  const convertTimeToMinutes = (timeString) => {
-    if (!timeString) return null;
-
-    const parts =
-      String(timeString).split(":");
-
-    if (parts.length !== 2) {
-      return null;
-    }
-
-    const hours = Number(parts[0]);
-    const minutes = Number(parts[1]);
-
-    if (
-      Number.isNaN(hours) ||
-      Number.isNaN(minutes)
-    ) {
-      return null;
-    }
-
-    return hours * 60 + minutes;
-  };
-
-  const formatMinutesToTime = (
-    totalMinutes
-  ) => {
-    if (totalMinutes === null) {
-      return "—";
-    }
-
-    const normalized =
-      ((totalMinutes % 1440) + 1440) %
-      1440;
-
-    const hours =
-      Math.floor(normalized / 60);
-
-    const minutes =
-      normalized % 60;
-
-    return `${String(hours).padStart(
-      2,
-      "0"
-    )}:${String(minutes).padStart(
-      2,
-      "0"
-    )}`;
-  };
-
-  return downstreamPropagation.map(
-    (item) => {
-      const factor =
-        Number(
-          item.propagationFactor
-        ) || 0;
-
-      const calculatedDelay =
-        Math.max(
-          0,
-          Math.round(
-            currentDelay * factor
-          )
-        );
-
-      const scheduledMinutes =
-        convertTimeToMinutes(
-          item.scheduledTime
-        );
-
-      const projectedArrival =
-        scheduledMinutes === null
-          ? "—"
-          : formatMinutesToTime(
-              scheduledMinutes +
-                calculatedDelay
-            );
-
-      return {
-        ...item,
-        calculatedDelay,
-        projectedArrival,
-        propagationPercentage:
-          Math.round(factor * 100),
-      };
-    }
-  );
-}, [
-  train,
-  currentDelay,
-  liveCurrentStation,
-]);
   /* =====================================================
      ROUTE RISK
      ===================================================== */
@@ -1533,6 +1571,76 @@ function App() {
                     {liveNextStation}
                   </div>
 
+                </div>
+
+              </div>
+
+              {/* DATABASE TELEMETRY */}
+
+              <div className="mt-2 rounded-lg border border-emerald-400/10 bg-emerald-400/[0.035] p-2">
+
+                <div className="flex items-center justify-between">
+
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                    DATABASE TELEMETRY
+                  </div>
+
+                  <div className="flex items-center gap-1">
+
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                    <span className="text-[7px] font-semibold text-emerald-400">
+                      BACKEND
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+
+                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
+
+                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
+                      DB Station
+                    </div>
+
+                    <div className="mt-0.5 truncate text-[10px] font-bold text-white">
+                      {databaseStation}
+                    </div>
+
+                  </div>
+
+                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
+
+                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
+                      Speed
+                    </div>
+
+                    <div className="mt-0.5 text-[10px] font-bold text-cyan-300">
+                      {databaseSpeed !== null
+                        ? `${databaseSpeed} km/h`
+                        : "—"}
+                    </div>
+
+                  </div>
+
+                  <div className="rounded-md border border-white/5 bg-white/[0.025] px-2 py-1.5">
+
+                    <div className="text-[7px] uppercase tracking-wider text-slate-600">
+                      Recorded
+                    </div>
+
+                    <div className="mt-0.5 truncate text-[10px] font-bold text-white">
+                      {formattedDatabaseTime}
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="mt-1.5 text-[7px] text-slate-600">
+                  Source: TrainLocation database • Latest record
                 </div>
 
               </div>
