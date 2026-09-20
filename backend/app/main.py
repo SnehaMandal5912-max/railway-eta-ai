@@ -28,6 +28,19 @@ from app.api.train_location_database_get import router as train_location_get_rou
 from app.models.historical_delay import HistoricalDelay
 from app.api.historical_delay_database import router as historical_delay_router
 from app.api.historical_delay_database_get import router as historical_delay_get_router
+from app.models.eta_prediction import ETAPrediction
+from app.api.eta_prediction_database import router as eta_prediction_router
+from app.api.eta_prediction_database_get import router as eta_prediction_get_router
+from app.models.delay_event import DelayEvent
+from app.api.delay_event_database import router as delay_event_router
+from app.api.delay_event_database_get import router as delay_event_get_router
+from app.models.hazard_alert import HazardAlert
+from app.api.hazard_alert_database import router as hazard_alert_router
+from app.api.hazard_alert_database_get import router as hazard_alert_get_router
+from app.models.safety_assistance import SafetyAssistance
+from app.api.safety_assistance_database import router as safety_assistance_router
+from app.api.safety_assistance_database_get import router as safety_assistance_get_router
+from app.api.safety_assistance_status import router as safety_assistance_status_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -59,6 +72,15 @@ app.include_router(train_location_router)
 app.include_router(train_location_get_router)
 app.include_router(historical_delay_router)
 app.include_router(historical_delay_get_router)
+app.include_router(eta_prediction_router)
+app.include_router(eta_prediction_get_router)
+app.include_router(delay_event_router)
+app.include_router(delay_event_get_router)
+app.include_router(hazard_alert_router)
+app.include_router(hazard_alert_get_router)
+app.include_router(safety_assistance_router)
+app.include_router(safety_assistance_get_router)
+app.include_router(safety_assistance_status_router)
 
 @app.get("/")
 def root():
