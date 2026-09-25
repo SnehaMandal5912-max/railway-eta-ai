@@ -509,28 +509,44 @@ function App() {
             </p>
 
             <div className="status-card">
-              <span className="status-label">CURRENT STATUS</span>
-              <h3>🟢 Running</h3>
-              <p>Current delay: <strong>17 minutes</strong></p>
-            </div>
+  <span className="status-label">CURRENT STATUS</span>
+  <h3>🟢 Running</h3>
+  <p>
+    Current delay: <strong>17 minutes</strong>
+  </p>
+  <small>
+    Train is currently running with an operational delay.
+  </small>
+</div>
 
             <div className="eta-card">
-              <span className="status-label">DYNAMIC ETA</span>
-              <div className="eta">{eta}</div>
-              <p>Expected arrival at Guwahati</p>
-            </div>
+  <span className="status-label">PREDICTED ETA</span>
+
+  <div className="eta">{eta}</div>
+
+  <p>Expected arrival at Guwahati</p>
+  <span className="eta-live">
+  ● Live prediction updating
+</span>
+
+  <div className="eta-details">
+    <small>Scheduled ETA: 10:30 PM</small>
+    <small>Based on current journey conditions</small>
+  </div>
+</div>
 
             <div className="next-station">
-              <span className="status-label">NEXT STATION</span>
-              <h3>🚉 New Bongaigaon</h3>
-              <p>Train is currently approaching this station.</p>
-            </div>
-
+  <span className="status-label">NEXT STATION</span>
+  <h3>🚉 New Bongaigaon</h3>
+  <p>Train is currently approaching this station.</p>
+  <small>Live route status • Updated dynamically</small>
+</div>
             <div className="delay-reason">
-              <span className="status-label">DELAY INFORMATION</span>
-              <h3>⚠️ Delay: 17 minutes</h3>
-              <p>Verified reason currently unavailable.</p>
-            </div>
+  <span className="status-label">DELAY INFORMATION</span>
+  <h3>⚠️ Delay: 17 minutes</h3>
+  <p>Verified reason currently unavailable.</p>
+  <small>We will show the reason when verified information is available.</small>
+</div>
 
             <div className="route">
               <h3>Journey Progress</h3>
@@ -553,6 +569,7 @@ function App() {
                   <strong>New Bongaigaon</strong>
                   <small>Upcoming</small>
                 </div>
+                
 
                 <div className="station upcoming">
                   <span>●</span>
@@ -605,6 +622,7 @@ function App() {
       setShowDestination(false);
       setShowSafety(false);
       setShowMore(false);
+      setShowTrainDetails(false);
     }}
   >
     ⌂ Home
@@ -616,6 +634,7 @@ function App() {
       setShowDestination(false);
       setShowSafety(false);
       setShowMore(false);
+      setShowTrainDetails(false);
     }}
   >
     🚆 Journey
@@ -627,6 +646,7 @@ function App() {
       setShowDestination(false); 
       setShowSafety(true); 
       setShowMore(false);
+      setShowTrainDetails(false);
     }}
   >
     🛡 Safety
@@ -638,6 +658,7 @@ function App() {
       setShowDestination(false);
       setShowSafety(false);
     setShowMore(true);
+    setShowTrainDetails(false);
     }}
   >
     ⋯ More

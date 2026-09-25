@@ -581,5 +581,23 @@ button {
 .search-error strong {
   color: #b42323;
 }
-
+.eta-live {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #d9ffd9;
 }
+
+.eta-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.eta-details small {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+}
+
