@@ -398,6 +398,7 @@ button {
 .delay-reason {
   background: #fff8ed;
   border: 1px solid #f3d6a4;
+  border-left: 5px solid var(--orange);
   border-radius: 18px;
   padding: 25px;
   margin-top: 20px;
@@ -586,7 +587,7 @@ button {
   margin-top: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: #d9ffd9;
+  color: #d9ffd9
 }
 
 .eta-details {

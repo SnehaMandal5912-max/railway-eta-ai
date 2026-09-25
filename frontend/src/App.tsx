@@ -541,11 +541,15 @@ function App() {
   <p>Train is currently approaching this station.</p>
   <small>Live route status • Updated dynamically</small>
 </div>
-            <div className="delay-reason">
-  <span className="status-label">DELAY INFORMATION</span>
-  <h3>⚠️ Delay: 17 minutes</h3>
-  <p>Verified reason currently unavailable.</p>
-  <small>We will show the reason when verified information is available.</small>
+          <div className="delay-reason">
+  <span className="status-label">DELAY ALERT</span>
+  <h3>⚠️ Train Delayed</h3>
+  <p>
+    This train is currently <strong>17 minutes late</strong>.
+  </p>
+  <small>
+    Verified delay reason currently unavailable.
+  </small>
 </div>
 
             <div className="route">
