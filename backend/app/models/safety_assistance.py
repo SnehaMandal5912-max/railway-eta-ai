@@ -11,5 +11,13 @@ class SafetyAssistance(Base):
     coach = Column(String, nullable=False)
     station = Column(String, nullable=False)
     request_type = Column(String, nullable=False)
+
     status = Column(String, nullable=False)
+
+    start_otp = Column(String, nullable=False)
+    end_otp = Column(String, nullable=False)
+
+    start_otp_verified = Column(String, nullable=False, default="NO")
+    end_otp_verified = Column(String, nullable=False, default="NO")
+
     requested_at = Column(DateTime, nullable=False)

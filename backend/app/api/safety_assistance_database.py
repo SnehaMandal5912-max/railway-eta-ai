@@ -1,4 +1,5 @@
 from datetime import datetime
+import random
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -20,6 +21,10 @@ def get_db():
         db.close()
 
 
+def generate_otp():
+    return str(random.randint(100000, 999999))
+
+
 @router.post("/")
 def create_safety_assistance(
     passenger_name: str,
@@ -29,6 +34,9 @@ def create_safety_assistance(
     request_type: str,
     db: Session = Depends(get_db)
 ):
+    start_otp = generate_otp()
+    end_otp = generate_otp()
+
     request = SafetyAssistance(
         passenger_name=passenger_name,
         train_number=train_number,
@@ -36,6 +44,10 @@ def create_safety_assistance(
         station=station,
         request_type=request_type,
         status="REQUESTED",
+        start_otp=start_otp,
+        end_otp=end_otp,
+        start_otp_verified="NO",
+        end_otp_verified="NO",
         requested_at=datetime.utcnow()
     )
 
@@ -52,5 +64,9 @@ def create_safety_assistance(
         "station": request.station,
         "request_type": request.request_type,
         "status": request.status,
+        "start_otp": request.start_otp,
+        "end_otp": request.end_otp,
+        "start_otp_verified": request.start_otp_verified,
+        "end_otp_verified": request.end_otp_verified,
         "requested_at": request.requested_at
     }
