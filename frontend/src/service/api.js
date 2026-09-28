@@ -1,4 +1,4 @@
-import trainData from "../trainData";
+﻿import trainData from "../trainData";
 
 const API_BASE_URL = "http://localhost:8000";
 const TRAIN_NUMBER = trainData.trainNumber || "12345";
@@ -657,14 +657,23 @@ export async function getUpcomingStations() {
 }
 
 /* =====================================================
-   ALERTS
+   ALERTS / HAZARDS
 ===================================================== */
 
 export async function getAlerts() {
-  return fetchAPI(
-    "/alerts",
-    trainData.alerts || []
+  const fallback = trainData.alerts || [];
+
+  const data = await fetchAPI(
+    `/hazards/${TRAIN_NUMBER}`,
+    {
+      train_number: TRAIN_NUMBER,
+      hazards: fallback,
+    }
   );
+
+  return Array.isArray(data?.hazards)
+    ? data.hazards
+    : fallback;
 }
 
 /* =====================================================
@@ -672,10 +681,7 @@ export async function getAlerts() {
 ===================================================== */
 
 export async function getRiskZones() {
-  return fetchAPI(
-    "/risk-zones",
-    trainData.riskZones || []
-  );
+  return trainData.riskZones || [];
 }
 
 /* =====================================================
@@ -683,8 +689,5 @@ export async function getRiskZones() {
 ===================================================== */
 
 export async function getSafetyRequests() {
-  return fetchAPI(
-    "/safety-requests",
-    []
-  );
+  return [];
 }
