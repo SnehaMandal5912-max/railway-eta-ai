@@ -37,7 +37,8 @@ def get_train_route(
                 "route_id": route.id,
                 "station_code": route.station_code,
                 "station_name": route.station_name,
-                "sequence": route.sequence
+                "sequence": route.sequence,
+                "distance_from_previous_km": route.distance_from_previous_km
             }
             for route in routes
         ]

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float
 from app.database import Base
 
 
@@ -10,3 +10,4 @@ class Route(Base):
     station_code = Column(String, nullable=False)
     station_name = Column(String, nullable=False)
     sequence = Column(Integer, nullable=False)
+    distance_from_previous_km = Column(Float, nullable=True)
