@@ -43,6 +43,7 @@ from app.api.safety_assistance_database_get import router as safety_assistance_g
 from app.api.safety_assistance_status import router as safety_assistance_status_router
 from app.api.safety_assistance_start_otp import router as safety_assistance_start_otp_router
 from app.api.safety_assistance_end_otp import router as safety_assistance_end_otp_router
+from app.api.destination_database import router as destination_database_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -85,6 +86,7 @@ app.include_router(safety_assistance_get_router)
 app.include_router(safety_assistance_status_router)
 app.include_router(safety_assistance_start_otp_router)
 app.include_router(safety_assistance_end_otp_router)
+app.include_router(destination_database_router)
 
 @app.get("/")
 def root():
